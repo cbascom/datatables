@@ -9,9 +9,12 @@ Requirements:
 
 JQuery, JQuery UI, and the DataTables JQuery plugin
 
+For Ohm Support:
+  redis, Ohm, Lunar
+
 Features:
 
-Easy definition of a table for an ActiveRecord model.
+Easy definition of a table for an ActiveRecord and Ohm model.
 Supports pagination.
 
 
@@ -78,3 +81,4 @@ Displaying a table is probably the easiest part. In a view for your controller, 
 
 
 Copyright (c) 2010 Chris Moos, released under the MIT license
+Copyright (c) 2012 Duane Compton, released under the MIT license
