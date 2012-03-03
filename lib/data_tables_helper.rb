@@ -1,37 +1,4 @@
 module DataTablesHelper
-  def datatables_with_delete(source, url, opts = {})
-    options = opts.dup
-
-    id_column = options.delete(:id_column) || 1
-    options[:jquery] ||= {}
-    options[:jquery][:oTableTools] ||= {}
-    options[:jquery][:oTableTools][:aButtons] ||= []
-    options[:jquery][:oTableTools][:aButtons] << {
-      :sExtends => 'delete',
-      :sAjaxUrl => url,
-      :mColumns => [id_column]
-    }
-    options[:jquery][:aoColumnDefs] ||= []
-    options[:jquery][:aoColumnDefs].unshift({
-                                              :aTargets => [id_column],
-                                              :bVisible => false
-                                            })
-
-    datatables_with_select(source, options)
-  end
-
-  def datatables_with_select(source, opts = {})
-    options = opts.dup
-    options[:jquery] ||= {}
-    options[:jquery][:oTableTools] ||= {}
-    options[:jquery][:oTableTools][:aButtons] ||= []
-    options[:jquery][:oTableTools][:aButtons].unshift 'select_none'
-    options[:jquery][:oTableTools][:aButtons].unshift 'select_all'
-    options[:jquery][:oTableTools][:sRowSelect] ||= 'multi'
-
-    datatables(source, options)
-  end
-
   def datatables(source, opts = {})
 
     options = opts[:jquery] ? opts[:jquery].dup : {}
@@ -51,6 +18,12 @@ module DataTablesHelper
                                      :bSearchable => false,
                                      :bSortable => false
                                    })
+
+    options[:fnInitComplete] ||= "function() {
+      if (eval('typeof ' + initDatatablesTable) == 'function') {
+        initDatatablesTable('#{source}');
+      }
+    }"
 
     sdom = 'lfrtip'
     sdom = "C<\"clear\">" + sdom if options[:oColVis]
@@ -95,7 +68,7 @@ end
 def datatables_option_string(options, indent = 4)
   arr = []
   options.each do |key, value|
-    if value.is_a?(String)
+    if value.is_a?(String) && value[0..7] != "function"
       arr << "#{' ' * indent}#{key}: '#{value}'"
     elsif value.is_a?(Array)
       indent += 2
@@ -106,7 +79,7 @@ def datatables_option_string(options, indent = 4)
           str += "#{datatables_option_string(item, indent + 2)}\n"
           str += "#{' ' * indent}}"
           item_arr << str
-        elsif item.is_a?(String)
+        elsif item.is_a?(String) && item[0..7] != "function"
           item_arr << "#{' ' * indent}'#{item}'"
         else
           item_arr << "#{' ' * indent}#{item}"
