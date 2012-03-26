@@ -54,7 +54,8 @@ module DataTablesController
             total_display_records = total_records
           else
             options = {}
-            options[:domain] = domain if scope == :domain
+            domain_id = domain.split("_")[1].to_i if scope == :domain
+            options[:domain] = domain_id .. domain_id if scope == :domain
             options[:fuzzy] = {columns[sort_column][:name].to_sym => search_condition}
             objects = Lunar.search(modelCls, options)
             total_display_records = objects.size
