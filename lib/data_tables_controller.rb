@@ -69,13 +69,37 @@ module DataTablesController
             :sEcho => params[:sEcho].to_i}.to_json
         end
       else
+        #add_search_option will determine whether the search text if empty or not
+        add_search_option = false
         define_method action.to_sym do
+          condition_local = ''
           unless params[:sSearch].blank?
             search_conditions = []
             columns.find_all { |col| col.has_key?(:attribute) }.each do |col|
               search_conditions << "(text(#{col[:attribute]}) ILIKE '%%#{params[:sSearch]}%%')"
             end
-            conditions << '(' + search_conditions.join(" OR ") + ')'
+            condition_local = '(' + search_conditions.join(" OR ") + ')' 
+            #conditions << '(' + search_conditions.join(" OR ") + ')'
+          end
+
+          #we just need one conditions string for search at a time. every time we input something else in the search bar we will pop the previous search condition string and push the new string.
+          if condition_local != ''
+            if add_search_option == false
+              conditions << condition_local
+              add_search_option = true
+            else
+              if conditions != []
+                conditions.pop
+                conditions << condition_local
+              end
+            end
+          else 
+            if add_search_option == true
+              if conditions != []
+                conditions.pop
+                add_search_option = false
+              end
+            end
           end
 
           total_records = modelCls.count
@@ -88,6 +112,7 @@ module DataTablesController
                                       :order => "#{columns[sort_column][:name]} #{params[:sSortDir_0]}",
                                       :conditions => conditions.join(" AND "),
                                       :per_page => params[:iDisplayLength])
+          #logger.info("------conditions is #{conditions}")
           data = objects.collect do |instance|
             columns.collect { |column| datatables_instance_get_value(instance, column) }
           end
