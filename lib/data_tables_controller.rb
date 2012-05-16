@@ -26,15 +26,16 @@ module DataTablesController
       conditions = options[:conditions] || []
 
       scope = options[:scope] || :domain
+      named_scope = options[:named_scope]
 
       # define columns so they are accessible from the helper
       define_columns(modelCls, columns, action)
 
       # define method that returns the data for the table
-      define_datatables_action(self, action, modelCls, scope, conditions, columns)
+      define_datatables_action(self, action, modelCls, scope, conditions, columns, named_scope)
     end
 
-    def define_datatables_action(controller, action, modelCls, scope, conditions, columns)
+    def define_datatables_action(controller, action, modelCls, scope, conditions, columns, named_scope)
 
       if modelCls < Ohm::Model
         define_method action.to_sym do
@@ -109,10 +110,17 @@ module DataTablesController
           sort_column = params[:iSortCol_0].to_i
           sort_column = 1 if sort_column == 0
           current_page = (params[:iDisplayStart].to_i/params[:iDisplayLength].to_i rescue 0)+1
-          objects = modelCls.paginate(:page => current_page,
-                                      :order => "#{columns[sort_column][:name]} #{params[:sSortDir_0]}",
-                                      :conditions => conditions.join(" AND "),
-                                      :per_page => params[:iDisplayLength])
+          if named_scope
+              objects = modelCls.send(named_scope).paginate(:page => current_page,
+                                          :order => "#{columns[sort_column][:name]} #{params[:sSortDir_0]}",
+                                          :conditions => conditions.join(" AND "),
+                                          :per_page => params[:iDisplayLength])
+          else
+              objects = modelCls.paginate(:page => current_page,
+                                          :order => "#{columns[sort_column][:name]} #{params[:sSortDir_0]}",
+                                          :conditions => conditions.join(" AND "),
+                                          :per_page => params[:iDisplayLength])
+          end
           #logger.info("------conditions is #{conditions}")
           data = objects.collect do |instance|
             columns.collect { |column| datatables_instance_get_value(instance, column) }
