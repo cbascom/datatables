@@ -169,7 +169,7 @@ module DataTablesController
   def datatables_instance_get_value(instance, column)
     if column[:attribute]
       val = instance.send(column[:attribute].to_sym)
-      return I18n.t(val.to_s.to_sym, :default => val.to_s) if not val.nil?
+      return I18n.t(val.to_s.to_sym, :default => val.to_s) if not val.blank?
       return ''
     elsif column[:special]
       special = column[:special]
