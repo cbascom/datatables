@@ -85,6 +85,7 @@ module DataTablesController
           end
 
           #we just need one conditions string for search at a time. every time we input something else in the search bar we will pop the previous search condition string and push the new string.
+          #conditions << condition_local
           if condition_local != ''
             if add_search_option == false
               conditions << condition_local
@@ -103,10 +104,14 @@ module DataTablesController
               end
             end
           end
-
-          total_records = modelCls.count
-          total_display_records = modelCls.count :conditions => conditions
-
+          
+          if named_scope
+            total_records = modelCls.send(named_scope).count
+            total_display_records = modelCls.send(named_scope).count :conditions => conditions.join(" AND ")
+          else
+            total_records = modelCls.count
+            total_display_records = modelCls.count :conditions => conditions.join(" AND ")
+          end
           sort_column = params[:iSortCol_0].to_i
           sort_column = 1 if sort_column == 0
           current_page = (params[:iDisplayStart].to_i/params[:iDisplayLength].to_i rescue 0)+1
