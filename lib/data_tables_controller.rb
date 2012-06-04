@@ -27,15 +27,17 @@ module DataTablesController
 
       scope = options[:scope] || :domain
       named_scope = options[:named_scope]
+      except = options[:except]
 
       # define columns so they are accessible from the helper
       define_columns(modelCls, columns, action)
 
       # define method that returns the data for the table
-      define_datatables_action(self, action, modelCls, scope, conditions, columns, named_scope)
+      define_datatables_action(self, action, modelCls, scope, conditions, columns, named_scope, except)
     end
 
-    def define_datatables_action(controller, action, modelCls, scope, conditions, columns, named_scope)
+    #named_scope is a combination table that include everything shows in UI, except is the codition used for Ohm's except method, it should be key-value format, such as [['name', 'bluesocket'],['id','1']].  
+    def define_datatables_action(controller, action, modelCls, scope, conditions, columns, named_scope, except)
 
       if modelCls < Ohm::Model
         define_method action.to_sym do
@@ -45,6 +47,11 @@ module DataTablesController
           end
           search_condition = params[:sSearch].blank? ? nil : params[:sSearch].to_s
           records = scope == :domain ? modelCls.find(:domain => domain) : modelCls.all
+          if except
+            except.each do |f|
+              records = records.except(f[0].to_sym => f[1])
+            end
+          end
           total_records = records.size
           sort_column = params[:iSortCol_0].to_i
           sort_column = 1 if sort_column == 0
