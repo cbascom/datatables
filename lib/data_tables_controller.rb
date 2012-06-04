@@ -72,6 +72,7 @@ module DataTablesController
         end
       else
         #add_search_option will determine whether the search text if empty or not
+        init_conditions = conditions.clone
         add_search_option = false
         define_method action.to_sym do
           condition_local = ''
@@ -106,10 +107,10 @@ module DataTablesController
           end
           
           if named_scope
-            total_records = modelCls.send(named_scope).count
+            total_records = modelCls.send(named_scope).count :conditions => init_conditions.join(" AND ")
             total_display_records = modelCls.send(named_scope).count :conditions => conditions.join(" AND ")
           else
-            total_records = modelCls.count
+            total_records = modelCls.count :conditions => init_conditions.join(" AND ")
             total_display_records = modelCls.count :conditions => conditions.join(" AND ")
           end
           sort_column = params[:iSortCol_0].to_i
