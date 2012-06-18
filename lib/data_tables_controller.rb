@@ -168,12 +168,16 @@ module DataTablesController
       define_method "datatable_#{action}_columns".to_sym do
         columnNames = []
         columns.each do |column|
+          columnName = ''
           if column[:method] or column[:eval]
-            columnNames << I18n.t(column[:name], :default => column[:name].to_s)
+            columnName << I18n.t(column[:name], :default => column[:name].to_s)
           else
-            columnNames << I18n.t(column[:name].to_sym, :default => column[:name].to_s)
+            columnName << I18n.t(column[:name].to_sym, :default => column[:name].to_s)
           end
+          columnName << ' *' unless column.has_key?(:attribute)
+          columnNames << columnName
         end
+
         columnNames
       end
     end

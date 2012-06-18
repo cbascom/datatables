@@ -25,7 +25,7 @@ module DataTablesHelper
       }
     }"
 
-    sdom = 'lfrtip'
+    sdom = '<"#datatables_search_hint">lfrtip'
     sdom = "C<\"clear\">" + sdom if options[:oColVis]
     sdom = 'T' + sdom if options[:oTableTools]
     options[:sDom] ||= sdom
