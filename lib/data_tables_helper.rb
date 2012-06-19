@@ -12,12 +12,6 @@ module DataTablesHelper
     unless options[:oColVis][:aiExclude].include?(0)
       options[:oColVis][:aiExclude].unshift(0)
     end
-    options[:aoColumnDefs] ||= []
-    options[:aoColumnDefs].unshift({
-                                     :aTargets => [0],
-                                     :bSearchable => false,
-                                     :bSortable => false
-                                   })
 
     options[:fnInitComplete] ||= "function() {
       if (eval('typeof ' + initDatatablesTable) == 'function') {
@@ -32,12 +26,25 @@ module DataTablesHelper
 
     datatable = controller.datatable_source(source)
     options[:sAjaxSource] = method("#{datatable[:action]}_url".to_sym).call
-    columns = datatable[:attrs].collect { |a| "<th>#{a}</th>" }.join
+    columns = datatable[:attrs].keys.collect { |a| "<th>#{a}</th>" }.join
+
+    index = 0
+    targets = datatable[:attrs].inject([]) do |memo, (column, searchable)|
+      memo << index unless searchable
+      index += 1
+      memo
+    end
+    options[:aoColumnDefs] ||= []
+    options[:aoColumnDefs].unshift({
+                                     :aTargets => targets,
+                                     :bSearchable => false,
+                                     :bSortable => false
+                                   })
 
     if options[:html]
       html_opts = options[:html].collect { |k,v| "#{k}=\"#{v}\"" }.join(' ')
     end
-    pad_ao_columns(options, datatable[:attrs].size)
+    pad_ao_columns(options, datatable[:attrs].keys.size)
 
     table_header = "<tr>#{columns}</tr>"
     html = "

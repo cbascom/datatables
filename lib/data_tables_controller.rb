@@ -84,12 +84,13 @@ module DataTablesController
         define_method action.to_sym do
           condition_local = ''
           unless params[:sSearch].blank?
-            search_conditions = []
-            columns.find_all { |col| col.has_key?(:attribute) }.each do |col|
+            sort_column_id = params[:iSortCol_0].to_i
+            sort_column_id = 1 if sort_column_id == 0
+            sort_column = columns[sort_column_id]
+            if sort_column && sort_column.has_key?(:attribute)
               condstr = params[:sSearch].gsub(/_/, '\\\\_').gsub(/%/, '\\\\%')
-              search_conditions << "(text(#{col[:attribute]}) ILIKE '#{condstr}%')"
-            end
-            condition_local = '(' + search_conditions.join(" OR ") + ')'
+              condition_local = "(text(#{sort_column[:name]}) ILIKE '#{condstr}%')"
+            end 
           end
 
           # We just need one conditions string for search at a time.  Every time we input
@@ -166,7 +167,7 @@ module DataTablesController
 
     def define_columns(cls, columns, action)
       define_method "datatable_#{action}_columns".to_sym do
-        columnNames = []
+        columnNames = {}
         columns.each do |column|
           columnName = ''
           if column[:method] or column[:eval]
@@ -175,7 +176,7 @@ module DataTablesController
             columnName << I18n.t(column[:name].to_sym, :default => column[:name].to_s)
           end
           columnName << ' *' unless column.has_key?(:attribute)
-          columnNames << columnName
+          columnNames[columnName] = column.has_key?(:attribute) ? true : false
         end
 
         columnNames
