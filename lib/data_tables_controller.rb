@@ -159,7 +159,9 @@ module DataTablesController
         if column.kind_of? Symbol # a column from the database, we don't need to do anything
           columns << {:name => column, :attribute => column}
         elsif column.kind_of? Hash
-          columns << {:name => column[:name], :special => column}
+	  col_hash = { :name => column[:name], :special => column }
+          col_hash[:attribute] = column[:attribute] if column[:attribute]
+          columns << col_hash
         end
       end
       columns
@@ -186,11 +188,7 @@ module DataTablesController
 
   # gets the value for a column and row
   def datatables_instance_get_value(instance, column)
-    if column[:attribute]
-      val = instance.send(column[:attribute].to_sym)
-      return I18n.t(val.to_s.to_sym, :default => val.to_s) if not val.blank?
-      return ''
-    elsif column[:special]
+    if column[:special]
       special = column[:special]
 
       if special[:method]
@@ -199,6 +197,10 @@ module DataTablesController
         proc = lambda { obj = instance; binding }
         return Kernel.eval(special[:eval], proc.call)
       end
+    elsif column[:attribute]
+      val = instance.send(column[:attribute].to_sym)
+      return I18n.t(val.to_s.to_sym, :default => val.to_s) if not val.blank?
+      return ''
     end
     return "value not found"
   end
