@@ -30,6 +30,11 @@ Example
 
 In your controller, set up a datatables source. This is how the data is pulled from the server and returned with AJAX.
 
+Initializer
+============
+ActionView::Base.send :include, DataTablesHelper
+ActionController::Base.send :include, DataTablesController
+
 Controller
 ===========
 
