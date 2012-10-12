@@ -1,3 +1,4 @@
+require "data_tables_helper"
 module DataTablesController
   def self.included(cls)
     cls.extend(ClassMethods)
