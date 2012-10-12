@@ -29,11 +29,14 @@ module DataTablesHelper
     columns = datatable[:attrs].keys.collect { |a| "<th>#{a}</th>" }.join
 
     index = 0
+    first_searchable_column_index = nil
     targets = datatable[:attrs].inject([]) do |memo, (column, searchable)|
+      first_searchable_column_index ||= index if searchable
       memo << index unless searchable
       index += 1
       memo
     end
+    options[:aaSorting] = [[first_searchable_column_index, 'asc']]
     options[:aoColumnDefs] ||= []
     options[:aoColumnDefs].unshift({
                                      :aTargets => targets,
