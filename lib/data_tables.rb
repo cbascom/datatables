@@ -1,4 +1,4 @@
-require "data_tables_helper"
+require "data_tables/data_tables_helper"
 module DataTablesController
   def self.included(cls)
     cls.extend(ClassMethods)
@@ -59,7 +59,7 @@ module DataTablesController
           current_page = (params[:iDisplayStart].to_i/params[:iDisplayLength].to_i rescue 0) + 1
           objects = nil
           if search_condition.nil?
-            objects = records.sort_by(columns[sort_column][:name].to_sym, :order=>"ALPHA " + params[:sSortDir_0].capitalize, :limit=>params[:iDisplayLength].to_i, :start=>(params[:iDisplayStart].to_i))
+            objects = records.sort_by(columns[sort_column][:name].to_sym, :order=>"ALPHA " + params[:sSortDir_0].capitalize, :limit=>[params[:iDisplayStart].to_i, params[:iDisplayLength].to_i])
             total_display_records = total_records
           else
             options = {}
@@ -68,7 +68,7 @@ module DataTablesController
             options[:fuzzy] = {columns[sort_column][:name].to_sym => search_condition}
             objects = Lunar.search(modelCls, options)
             total_display_records = objects.size
-            objects = objects.sort(:by => columns[sort_column][:name].to_sym, :order=>"ALPHA " + params[:sSortDir_0].capitalize, :limit=>params[:iDisplayLength].to_i, :start=>(params[:iDisplayStart].to_i))
+            objects = objects.sort(:by => columns[sort_column][:name].to_sym, :order=>"ALPHA " + params[:sSortDir_0].capitalize, :limit=>[params[:iDisplayStart].to_i, params[:iDisplayLength].to_i])
           end
           data = objects.collect do |instance|
             columns.collect { |column| datatables_instance_get_value(instance, column) }

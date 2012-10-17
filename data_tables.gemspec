@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = 'data_tables'
-  s.version     = '0.1.2'
+  s.version     = '0.1.4'
   s.date        = '2012-10-10'
   s.summary     = "Rails friendly interface into DataTables"
   s.description = "Originally a plugin"
