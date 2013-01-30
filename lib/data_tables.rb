@@ -38,6 +38,7 @@ module DataTablesController
       conditions = options[:conditions] || []
       scope = options[:scope] || :domain
       named_scope = options[:named_scope]
+      named_scope_args = options[:named_scope_args]
       except = options[:except]
 
       if modelCls < Ohm::Model
@@ -59,7 +60,16 @@ module DataTablesController
           current_page = (params[:iDisplayStart].to_i/params[:iDisplayLength].to_i rescue 0) + 1
           objects = nil
           if search_condition.nil?
-            objects = records.sort_by(columns[sort_column][:name].to_sym, :order=>"ALPHA " + params[:sSortDir_0].capitalize, :limit=>[params[:iDisplayStart].to_i, params[:iDisplayLength].to_i])
+            if Gem.loaded_specs['ohm'].version == Gem::Version.create('0.1.5')
+              objects = records.sort_by(columns[sort_column][:name].to_sym,
+                                        :order => "ALPHA " + params[:sSortDir_0].capitalize,
+                                        :start => params[:iDisplayStart].to_i,
+                                        :limit => params[:iDisplayLength].to_i)
+            else
+              objects = records.sort_by(columns[sort_column][:name].to_sym,
+                                        :order => "ALPHA " + params[:sSortDir_0].capitalize,
+                                        :limit => [params[:iDisplayStart].to_i, params[:iDisplayLength].to_i])
+            end
             total_display_records = total_records
           else
             options = {}
@@ -68,7 +78,16 @@ module DataTablesController
             options[:fuzzy] = {columns[sort_column][:name].to_sym => search_condition}
             objects = Lunar.search(modelCls, options)
             total_display_records = objects.size
-            objects = objects.sort(:by => columns[sort_column][:name].to_sym, :order=>"ALPHA " + params[:sSortDir_0].capitalize, :limit=>[params[:iDisplayStart].to_i, params[:iDisplayLength].to_i])
+            if Gem.loaded_specs['ohm'].version == Gem::Version.create('0.1.5')
+              objects = objects.sort(:by => columns[sort_column][:name].to_sym,
+                                     :order => "ALPHA " + params[:sSortDir_0].capitalize,
+                                     :start => params[:iDisplayStart].to_i,
+                                     :limit => params[:iDisplayLength].to_i)
+            else
+              objects = objects.sort(:by => columns[sort_column][:name].to_sym,
+                                     :order => "ALPHA " + params[:sSortDir_0].capitalize,
+                                     :limit => [params[:iDisplayStart].to_i, params[:iDisplayLength].to_i])
+            end
           end
           data = objects.collect do |instance|
             columns.collect { |column| datatables_instance_get_value(instance, column) }
@@ -91,7 +110,7 @@ module DataTablesController
             if sort_column && sort_column.has_key?(:attribute)
               condstr = params[:sSearch].gsub(/_/, '\\\\_').gsub(/%/, '\\\\%')
               condition_local = "(text(#{sort_column[:name]}) ILIKE '#{condstr}%')"
-            end 
+            end
           end
 
           # We just need one conditions string for search at a time.  Every time we input
@@ -117,8 +136,9 @@ module DataTablesController
           end
 
           if named_scope
-            total_records = modelCls.send(named_scope).count :conditions => init_conditions.join(" AND ")
-            total_display_records = modelCls.send(named_scope).count :conditions => conditions.join(" AND ")
+            args = named_scope_args ? Array(self.send(named_scope_args)) : []
+            total_records = modelCls.send(named_scope, *args).count :conditions => init_conditions.join(" AND ")
+            total_display_records = modelCls.send(named_scope, *args).count :conditions => conditions.join(" AND ")
           else
             total_records = modelCls.count :conditions => init_conditions.join(" AND ")
             total_display_records = modelCls.count :conditions => conditions.join(" AND ")
@@ -127,7 +147,7 @@ module DataTablesController
           sort_column = 1 if sort_column == 0
           current_page = (params[:iDisplayStart].to_i/params[:iDisplayLength].to_i rescue 0)+1
           if named_scope
-              objects = modelCls.send(named_scope).paginate(:page => current_page,
+              objects = modelCls.send(named_scope, *args).paginate(:page => current_page,
                                           :order => "#{columns[sort_column][:name]} #{params[:sSortDir_0]}",
                                           :conditions => conditions.join(" AND "),
                                           :per_page => params[:iDisplayLength])
