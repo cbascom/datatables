@@ -9,7 +9,11 @@ module DataTablesController
       modelCls = Kernel.const_get(model.to_s.split("_").collect(&:capitalize).join)
       modelAttrs = nil
       if modelCls < Ohm::Model
-        modelAttrs = Hash[*modelCls.new.attributes.collect  { |v| [v.to_s, nil] }.flatten]
+        if Gem.loaded_specs['ohm'].version == Gem::Version.create('0.1.5')
+          modelAttrs = Hash[*modelCls.new.attributes.collect { |v| [v.to_s, nil] }.flatten]
+        else
+          modelAttrs = {}
+        end
       else
         modelAttrs = modelCls.new.attributes
       end
