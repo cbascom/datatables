@@ -44,7 +44,7 @@ module DataTablesController
       named_scope = options[:named_scope]
       named_scope_args = options[:named_scope_args]
       except = options[:except]
-      
+
       if modelCls < Ohm::Model
         define_method action.to_sym do
           if scope == :domain
@@ -111,7 +111,7 @@ module DataTablesController
           domain_name = ActiveRecord::Base.connection.schema_search_path.to_s.split(",")[0]
           logger.info "****** domain_name = #{domain_name}"
           condition_local = ''
-          
+
           unless params[:sSearch].blank?
             sort_column_id = params[:iSortCol_0].to_i
             sort_column_id = 1 if sort_column_id == 0
@@ -147,7 +147,7 @@ module DataTablesController
           sort_column = params[:iSortCol_0].to_i
           sort_column = 1 if sort_column == 0
           current_page = (params[:iDisplayStart].to_i/params[:iDisplayLength].to_i rescue 0)+1
-          
+
           if named_scope
             args = named_scope_args ? Array(self.send(named_scope_args)) : []
             total_records         = modelCls.send(named_scope, *args).count :conditions => init_conditions.join(" AND ")
@@ -157,35 +157,43 @@ module DataTablesController
                                         :conditions => conditions.join(" AND "),
                                         :per_page => params[:iDisplayLength])
           else
-              if modelCls.name == 'Log'
-                modelCls.index_name "logs_#{domain_name}"
+              if modelCls.ancestors.any?{|ancestor| ancestor.name == "Tire::Model::Search"}
+                logger.info "*** Using ElasticSearch for #{modelCls.inspect}"
                 objects =  []
                 per_page = params[:iDisplayLength] || 10
                 column_name = columns[sort_column][:name] || 'message'
                 sort_dir = params[:sSortDir_0] || 'desc'
 
-                begin 
-                  objects = modelCls.search(condstr.blank? ? '*' : condstr,
-                                    page: current_page,
-                                    per_page: per_page, 
-                                    index: "logs_#{domain_name}",
-                                    sort: "#{column_name}:#{sort_dir}").to_a 
+                begin
+                  query = Proc.new do
+                    query{ string(condstr.blank? ? '*' : condstr)}
+                    filter :term, domain: domain_name
+                  end
+
+                  results = modelCls.search(page: current_page,
+                                            per_page: per_page,
+                                            sort: "#{column_name}:#{sort_dir}",
+                                            &query)
+                  objects = results.to_a
+                  total_display_records = results.total
+                  total_records = modelCls.search(search_type: 'count') do
+                    filter :term, domain: domain_name
+                  end.total
                 rescue Tire::Search::SearchRequestFailed => e
                   logger.info "[Tire::Search::SearchRequestFailed] #{e.inspect}"
                   objects = []
+                  total_display_records = 0
+                  total_records = 0
                 end
-                
-                total_records         = Tire.count("logs_#{domain_name}") rescue 0
-                total_display_records = condstr.blank? ? total_records : Tire.count("logs_#{domain_name}"){string condstr}
-
                 logger.info "****** condstr=#{condstr}; count = #{objects.count}; page=#{current_page}/#{per_page}; sort_dir=#{sort_dir}; column_name=#{column_name}"
               else
+                logger.info "*** Using Postgres for #{modelCls.inspect}"
                 objects = modelCls.paginate(:page => current_page,
                                             :order => "#{column_name} #{sort_dir}",
                                             :conditions => conditions.join(" AND "),
                                             :per_page => per_page)
                 total_records         = modelCls.count :conditions => init_conditions.join(" AND ")
-                total_display_records = modelCls.count :conditions => conditions.join(" AND ")                
+                total_display_records = modelCls.count :conditions => conditions.join(" AND ")
               end
           end
           data = objects.collect do |instance|
@@ -210,7 +218,7 @@ module DataTablesController
         if column.kind_of? Symbol # a column from the database, we don't need to do anything
           columns << {:name => column, :attribute => column}
         elsif column.kind_of? Hash
-	  col_hash = { :name => column[:name], :special => column }
+    col_hash = { :name => column[:name], :special => column }
           col_hash[:attribute] = column[:attribute] if column[:attribute]
           columns << col_hash
         end
