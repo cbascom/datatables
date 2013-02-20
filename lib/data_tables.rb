@@ -109,7 +109,6 @@ module DataTablesController
 
         define_method action.to_sym do
           domain_name = ActiveRecord::Base.connection.schema_search_path.to_s.split(",")[0]
-          logger.info "****** domain_name = #{domain_name}"
           condition_local = ''
 
           unless params[:sSearch].blank?
@@ -158,7 +157,7 @@ module DataTablesController
                                         :per_page => params[:iDisplayLength])
           else
             if modelCls.ancestors.any?{|ancestor| ancestor.name == "Tire::Model::Search"}
-              logger.info "*** Using ElasticSearch for #{modelCls.inspect}"
+              logger.debug "*** Using ElasticSearch for #{modelCls.inspect}"
               objects =  []
               per_page = params[:iDisplayLength] || 10
               column_name = columns[sort_column][:name] || 'message'
@@ -166,7 +165,7 @@ module DataTablesController
 
               begin
                 query = Proc.new do
-                  query{ string(condstr.blank? ? '*' : condstr)}
+                  query { string(condstr.blank? ? '*' : condstr) }
                   filter :term, domain: domain_name
                 end
 
@@ -180,14 +179,13 @@ module DataTablesController
                   filter :term, domain: domain_name
                 end.total
               rescue Tire::Search::SearchRequestFailed => e
-                logger.info "[Tire::Search::SearchRequestFailed] #{e.inspect}"
+                logger.debug "[Tire::Search::SearchRequestFailed] #{e.inspect}\n#{e.backtrace.join("\n")}"
                 objects = []
                 total_display_records = 0
                 total_records = 0
               end
-              logger.info "****** condstr=#{condstr}; count = #{objects.count}; page=#{current_page}/#{per_page}; sort_dir=#{sort_dir}; column_name=#{column_name}"
             else
-              logger.info "*** Using Postgres for #{modelCls.inspect}"
+              logger.debug "*** Using Postgres for #{modelCls.inspect}"
               objects = modelCls.paginate(:page => current_page,
                                           :order => "#{column_name} #{sort_dir}",
                                           :conditions => conditions.join(" AND "),
