@@ -47,11 +47,14 @@ module DataTablesController
 
       if modelCls < Ohm::Model
         define_method action.to_sym do
+          logger.debug "[tire] (datatable) #{action.to_sym} #{modelCls} < Ohm::Model"
           if scope == :domain
             domain = ActiveRecord::Base.connection.schema_search_path.to_s.split(",")[0]
             return if domain.nil?
           end
           search_condition = params[:sSearch].blank? ? nil : params[:sSearch].to_s
+
+
           records = scope == :domain ? modelCls.find(:domain => domain) : modelCls.all
           if except
             except.each do |f|
@@ -62,6 +65,10 @@ module DataTablesController
           sort_column = params[:iSortCol_0].to_i
           sort_column = 1 if sort_column == 0
           current_page = (params[:iDisplayStart].to_i/params[:iDisplayLength].to_i rescue 0) + 1
+          per_page = params[:iDisplayLength] || 10
+          sort_dir = params[:sSortDir_0] || 'desc'
+          column_name_sym = columns[sort_column][:name].to_sym
+
           objects = nil
           if search_condition.nil?
             if Gem.loaded_specs['ohm'].version == Gem::Version.create('0.1.5')
@@ -75,22 +82,49 @@ module DataTablesController
                                         :limit => [params[:iDisplayStart].to_i, params[:iDisplayLength].to_i])
             end
             total_display_records = total_records
-          else
-            options = {}
-            domain_id = domain.split("_")[1].to_i if scope == :domain
-            options[:domain] = domain_id .. domain_id if scope == :domain
-            options[:fuzzy] = {columns[sort_column][:name].to_sym => search_condition}
-            objects = Lunar.search(modelCls, options)
-            total_display_records = objects.size
-            if Gem.loaded_specs['ohm'].version == Gem::Version.create('0.1.5')
-              objects = objects.sort(:by => columns[sort_column][:name].to_sym,
-                                     :order => "ALPHA " + params[:sSortDir_0].capitalize,
-                                     :start => params[:iDisplayStart].to_i,
-                                     :limit => params[:iDisplayLength].to_i)
-            else
-              objects = objects.sort(:by => columns[sort_column][:name].to_sym,
-                                     :order => "ALPHA " + params[:sSortDir_0].capitalize,
-                                     :limit => [params[:iDisplayStart].to_i, params[:iDisplayLength].to_i])
+          else # search_condition
+            if defined? Tire
+              elastic_index_name = modelCls.to_s.underscore
+              results = Tire.search(elastic_index_name) do
+                query do
+                  string search_condition
+                end
+
+                sort do
+                  by column_name_sym, sort_dir
+                end
+
+                filter :term, domain: domain
+                size per_page
+                from current_page-1
+              end.results
+
+              objects = []
+              results.each do |r|
+                objects << modelCls[r.id]
+              end
+
+              total_display_records = results.total
+              total_records = Tire.search(elastic_index_name, search_type: 'count') do
+                filter :term, domain: domain
+              end.results.total
+            else # no Tire/ES
+              options = {}
+              domain_id = domain.split("_")[1].to_i if scope == :domain
+              options[:domain] = domain_id .. domain_id if scope == :domain
+              options[:fuzzy] = {columns[sort_column][:name].to_sym => search_condition}
+              objects = Lunar.search(modelCls, options)
+              total_display_records = objects.size
+              if Gem.loaded_specs['ohm'].version == Gem::Version.create('0.1.5')
+                objects = objects.sort(:by => columns[sort_column][:name].to_sym,
+                                       :order => "ALPHA " + params[:sSortDir_0].capitalize,
+                                       :start => params[:iDisplayStart].to_i,
+                                       :limit => params[:iDisplayLength].to_i)
+              else
+                objects = objects.sort(:by => columns[sort_column][:name].to_sym,
+                                       :order => "ALPHA " + params[:sSortDir_0].capitalize,
+                                       :limit => [params[:iDisplayStart].to_i, params[:iDisplayLength].to_i])
+              end
             end
           end
           data = objects.collect do |instance|
@@ -102,6 +136,7 @@ module DataTablesController
             :sEcho => params[:sEcho].to_i}.to_json
         end
       else
+        logger.debug "(datatable) #{action.to_sym} #{modelCls} < ActiveRecord"
         # add_search_option will determine whether the search text is empty or not
         init_conditions = conditions.clone
         add_search_option = false
