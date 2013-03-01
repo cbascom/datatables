@@ -53,8 +53,6 @@ module DataTablesController
             return if domain.nil?
           end
           search_condition = params[:sSearch].blank? ? nil : params[:sSearch].to_s
-
-
           records = scope == :domain ? modelCls.find(:domain => domain) : modelCls.all
           if except
             except.each do |f|
@@ -99,10 +97,7 @@ module DataTablesController
                 from current_page-1
               end.results
 
-              objects = []
-              results.each do |r|
-                objects << modelCls[r.id]
-              end
+              objects = results.map{|r| modelCls[r.id] }
 
               total_display_records = results.total
               total_records = Tire.search(elastic_index_name, search_type: 'count') do
@@ -135,7 +130,7 @@ module DataTablesController
             :aaData => data,
             :sEcho => params[:sEcho].to_i}.to_json
         end
-      else
+      else # modelCls < ActiveRecord::Base
         logger.debug "(datatable) #{action.to_sym} #{modelCls} < ActiveRecord"
         # add_search_option will determine whether the search text is empty or not
         init_conditions = conditions.clone
@@ -153,6 +148,7 @@ module DataTablesController
             if sort_column && sort_column.has_key?(:attribute)
               condstr = params[:sSearch].gsub(/_/, '\\\\_').gsub(/%/, '\\\\%')
               condition_local = "(text(#{sort_column[:name]}) ILIKE '%#{condstr}%')"
+              #condition_local = modelCls.column_names{|column_name| "(text(#{column_name}) ILIKE '%#{condstr}%')" }.join(" OR ")
             end
           end
 
@@ -182,52 +178,46 @@ module DataTablesController
           sort_column = 1 if sort_column == 0
           current_page = (params[:iDisplayStart].to_i/params[:iDisplayLength].to_i rescue 0)+1
 
-          if named_scope
-            args = named_scope_args ? Array(self.send(named_scope_args)) : []
-            total_records         = modelCls.send(named_scope, *args).count :conditions => init_conditions.join(" AND ")
-            total_display_records = modelCls.send(named_scope, *args).count :conditions => conditions.join(" AND ")
-            objects = modelCls.send(named_scope, *args).paginate(:page => current_page,
-                                        :order => "#{columns[sort_column][:name]} #{params[:sSortDir_0]}",
-                                        :conditions => conditions.join(" AND "),
-                                        :per_page => params[:iDisplayLength])
-          else
-            if modelCls.ancestors.any?{|ancestor| ancestor.name == "Tire::Model::Search"}
-              logger.debug "*** Using ElasticSearch for #{modelCls.inspect}"
-              objects =  []
-              per_page = params[:iDisplayLength] || 10
-              column_name = columns[sort_column][:name] || 'message'
-              sort_dir = params[:sSortDir_0] || 'desc'
+          if modelCls.ancestors.any?{|ancestor| ancestor.name == "Tire::Model::Search"}
+            logger.debug "*** Using ElasticSearch for #{modelCls.inspect}"
+            objects =  []
+            per_page = params[:iDisplayLength] || 10
+            column_name = columns[sort_column][:name] || 'message'
+            sort_dir = params[:sSortDir_0] || 'desc'
 
-              begin
-                query = Proc.new do
-                  query { string(condstr.blank? ? '*' : condstr) }
-                  filter :term, domain: domain_name
-                end
-
-                results = modelCls.search(page: current_page,
-                                          per_page: per_page,
-                                          sort: "#{column_name}:#{sort_dir}",
-                                          &query)
-                objects = results.to_a
-                total_display_records = results.total
-                total_records = modelCls.search(search_type: 'count') do
-                  filter :term, domain: domain_name
-                end.total
-              rescue Tire::Search::SearchRequestFailed => e
-                logger.debug "[Tire::Search::SearchRequestFailed] #{e.inspect}\n#{e.backtrace.join("\n")}"
-                objects = []
-                total_display_records = 0
-                total_records = 0
+            begin
+              query = Proc.new do
+                query { string(condstr.blank? ? '*' : condstr) }
+                filter :term, domain: domain_name
               end
-            else
-              logger.debug "*** Using Postgres for #{modelCls.inspect}"
-              objects = modelCls.paginate(:page => current_page,
-                                          :order => "#{column_name} #{sort_dir}",
-                                          :conditions => conditions.join(" AND "),
-                                          :per_page => per_page)
-              total_records         = modelCls.count :conditions => init_conditions.join(" AND ")
-              total_display_records = modelCls.count :conditions => conditions.join(" AND ")
+
+              results = modelCls.search(page: current_page,
+                                        per_page: per_page,
+                                        sort: "#{column_name}:#{sort_dir}",
+                                        &query)
+              objects = results.to_a
+              total_display_records = results.total
+              total_records = modelCls.search(search_type: 'count') do
+                filter :term, domain: domain_name
+              end.total
+            rescue Tire::Search::SearchRequestFailed => e
+              logger.debug "[Tire::Search::SearchRequestFailed] #{e.inspect}\n#{e.backtrace.join("\n")}"
+              objects = []
+              total_display_records = 0
+              total_records = 0
             end
+          else # non-tire/elasticsearch
+            if named_scope
+              args = named_scope_args ? Array(self.send(named_scope_args)) : []
+              modelCls = modelCls.send(named_scope, *args)
+            end
+            logger.info "*** Using Postgres for #{modelCls.inspect}"
+            objects = modelCls.paginate(:page => current_page,
+                                        :order => "#{column_name} #{sort_dir}",
+                                        :conditions => conditions.join(" AND "),
+                                        :per_page => per_page)
+            total_records         = modelCls.count :conditions => init_conditions.join(" AND ")
+            total_display_records = modelCls.count :conditions => conditions.join(" AND ")
           end
           data = objects.collect do |instance|
             columns.collect { |column| datatables_instance_get_value(instance, column) }
