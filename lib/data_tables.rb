@@ -130,7 +130,7 @@ module DataTablesController
             :aaData => data,
             :sEcho => params[:sEcho].to_i}.to_json
         end
-      else # modelCls < ActiveRecord::Base
+      else # modelCls < ActiveRecord::Base or Non-Ohm models
         logger.debug "(datatable) #{action.to_sym} #{modelCls} < ActiveRecord"
         # add_search_option will determine whether the search text is empty or not
         init_conditions = conditions.clone
@@ -139,7 +139,7 @@ module DataTablesController
 
         define_method action.to_sym do
           domain_name = ActiveRecord::Base.connection.schema_search_path.to_s.split(",")[0]
-          condition_local = ''
+          # condition_local = ''
 
           unless params[:sSearch].blank?
             sort_column_id = params[:iSortCol_0].to_i
@@ -147,39 +147,43 @@ module DataTablesController
             sort_column = columns[sort_column_id]
             if sort_column && sort_column.has_key?(:attribute)
               condstr = params[:sSearch].gsub(/_/, '\\\\_').gsub(/%/, '\\\\%')
-              condition_local = "(text(#{sort_column[:name]}) ILIKE '%#{condstr}%')"
-              #condition_local = modelCls.column_names{|column_name| "(text(#{column_name}) ILIKE '%#{condstr}%')" }.join(" OR ")
+              # condition_local = "(text(#{sort_column[:name]}) ILIKE '%#{condstr}%')"
             end
           end
 
           # We just need one conditions string for search at a time.  Every time we input
           # something else in the search bar we will pop the previous search condition
           # string and push the new string.
-          if condition_local != ''
-            if add_search_option == false
-              conditions << condition_local
-              add_search_option = true
-            else
-              if conditions != []
-                conditions.pop
-                conditions << condition_local
-              end
-            end
-          else
-            if add_search_option == true
-              if conditions != []
-                conditions.pop
-                add_search_option = false
-              end
-            end
-          end
+          # if condition_local != ''
+          #   if add_search_option == false
+          #     conditions << condition_local
+          #     add_search_option = true
+          #   else
+          #     if conditions != []
+          #       conditions.pop
+          #       conditions << condition_local
+          #     end
+          #   end
+          # else
+          #   if add_search_option == true
+          #     if conditions != []
+          #       conditions.pop
+          #       add_search_option = false
+          #     end
+          #   end
+          # end
+
+          # TODO interate only on the searchable columns
+          conditions = modelCls.column_names.map do |column_name|
+            "(text(#{column_name}) ILIKE '%#{condstr}%')"
+          end.join(" OR ")
 
           sort_column = params[:iSortCol_0].to_i
           sort_column = 1 if sort_column == 0
           current_page = (params[:iDisplayStart].to_i/params[:iDisplayLength].to_i rescue 0)+1
 
           if modelCls.ancestors.any?{|ancestor| ancestor.name == "Tire::Model::Search"}
-            logger.debug "*** Using ElasticSearch for #{modelCls.inspect}"
+            logger.debug "*** Using ElasticSearch for #{modelCls.name}"
             objects =  []
             per_page = params[:iDisplayLength] || 10
             column_name = columns[sort_column][:name] || 'message'
@@ -207,17 +211,17 @@ module DataTablesController
               total_records = 0
             end
           else # non-tire/elasticsearch
+            logger.info "*** Using Postgres for #{modelCls.name}"
             if named_scope
               args = named_scope_args ? Array(self.send(named_scope_args)) : []
               modelCls = modelCls.send(named_scope, *args)
             end
-            logger.info "*** Using Postgres for #{modelCls.inspect}"
             objects = modelCls.paginate(:page => current_page,
                                         :order => "#{column_name} #{sort_dir}",
-                                        :conditions => conditions.join(" AND "),
+                                        :conditions => conditions,
                                         :per_page => per_page)
             total_records         = modelCls.count :conditions => init_conditions.join(" AND ")
-            total_display_records = modelCls.count :conditions => conditions.join(" AND ")
+            total_display_records = modelCls.count :conditions => conditions
           end
           data = objects.collect do |instance|
             columns.collect { |column| datatables_instance_get_value(instance, column) }
