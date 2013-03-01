@@ -224,7 +224,7 @@ module DataTablesController
         if column.kind_of? Symbol # a column from the database, we don't need to do anything
           columns << {:name => column, :attribute => column}
         elsif column.kind_of? Hash
-    col_hash = { :name => column[:name], :special => column }
+          col_hash = { :name => column[:name], :special => column }
           col_hash[:attribute] = column[:attribute] if column[:attribute]
           columns << col_hash
         end

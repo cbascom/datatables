@@ -8,10 +8,13 @@ module DataTablesHelper
     options[:bAutoWidth] = false unless options.has_key?(:bAutoWidth)
     options[:bStateSave] = true unless options.has_key?(:bStateSave)
     options[:oColVis] ||= {}
+    options[:bFilter] = true
     options[:oColVis][:aiExclude] ||= []
     unless options[:oColVis][:aiExclude].include?(0)
       options[:oColVis][:aiExclude].unshift(0)
     end
+
+    options[:bFilter] = opts[:search] unless opts[:search].nil?
 
     options[:fnInitComplete] ||= "function() {
       if (eval('typeof ' + initDatatablesTable) == 'function') {
@@ -19,10 +22,14 @@ module DataTablesHelper
       }
     }"
 
-    sdom = '<"#datatables_search_hint">lfrtip'
+    sdom = options[:bFilter] ? '<"#datatables_search_hint">lfrtip' : 'lrtip'
     sdom = "C<\"clear\">" + sdom if options[:oColVis]
     sdom = 'T' + sdom if options[:oTableTools]
     options[:sDom] ||= sdom
+
+    # Rails.logger.info("*****#{options.inspect}")
+
+    # options[:sDom].delete(:f)
 
     datatable = controller.datatable_source(source)
     options[:sAjaxSource] = method("#{datatable[:action]}_url".to_sym).call
