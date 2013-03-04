@@ -195,6 +195,8 @@ module DataTablesController
               "(text(#{column_name}) ILIKE '%#{condstr}%')"
             end.join(" OR ")
 
+            conditions = "(#{conditions}) AND (#{init_conditions.join(" AND ")})" if init_conditions.any?
+
             objects = modelCls.paginate(:page => current_page,
                                         :order => "#{column_name} #{sort_dir}",
                                         :conditions => conditions,
