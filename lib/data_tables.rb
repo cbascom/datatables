@@ -69,6 +69,7 @@ module DataTablesController
 
           objects = nil
           if search_condition.nil?
+            logger.debug "*** (datatable:#{__LINE__}) search_condition.nil? = true"
             if Gem.loaded_specs['ohm'].version == Gem::Version.create('0.1.5')
               objects = records.sort_by(columns[sort_column][:name].to_sym,
                                         :order => "ALPHA " + params[:sSortDir_0].capitalize,
@@ -81,7 +82,9 @@ module DataTablesController
             end
             total_display_records = total_records
           else # search_condition
+            logger.debug "*** (datatable:#{__LINE__}) search_condition.nil? = false"
             if defined? Tire
+              logger.debug "*** (datatable:#{__LINE__}) Using tire for search"
               elastic_index_name = modelCls.to_s.underscore
               results = Tire.search(elastic_index_name) do
                 query do
@@ -104,6 +107,7 @@ module DataTablesController
                 filter :term, domain: domain
               end.results.total
             else # no Tire/ES
+              logger.debug "*** (datatable:#{__LINE__}) NOT using tire for search"
               options = {}
               domain_id = domain.split("_")[1].to_i if scope == :domain
               options[:domain] = domain_id .. domain_id if scope == :domain
@@ -191,8 +195,8 @@ module DataTablesController
             end
 
             # TODO interate only on the displayed columns, maybe?
-            conditions = modelCls.column_names.map do |column_name|
-              "(text(#{column_name}) ILIKE '%#{condstr}%')"
+            conditions = modelCls.column_names.select{|t| t !~ /(\b|_)id$/}.map do |column_name|
+              "(text(#{modelCls.name.underscore.pluralize}.#{column_name}) ILIKE '%#{condstr}%')"
             end.join(" OR ")
 
             conditions = "(#{conditions}) AND (#{init_conditions.join(" AND ")})" if init_conditions.any?
