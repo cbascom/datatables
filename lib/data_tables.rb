@@ -47,7 +47,7 @@ module DataTablesController
 
       if modelCls < Ohm::Model
         define_method action.to_sym do
-          logger.debug "[tire] (datatable) #{action.to_sym} #{modelCls} < Ohm::Model"
+          logger.debug "[tire] (datatable:#{__LINE__}) #{action.to_sym} #{modelCls} < Ohm::Model"
           if scope == :domain
             domain = ActiveRecord::Base.connection.schema_search_path.to_s.split(",")[0]
             return if domain.nil?
@@ -86,19 +86,33 @@ module DataTablesController
             if defined? Tire
               logger.debug "*** (datatable:#{__LINE__}) Using tire for search"
               elastic_index_name = modelCls.to_s.underscore
-              results = Tire.search(elastic_index_name) do
-                query do
-                  string search_condition
-                end
 
-                sort do
-                  by column_name_sym, sort_dir
-                end
+              begin
+                results = Tire.search(elastic_index_name) do
+                  query do
+                    string search_condition
+                  end
 
-                filter :term, domain: domain
-                size per_page
-                from current_page-1
-              end.results
+                  sort do
+                    by column_name_sym, sort_dir
+                  end
+
+                  filter :term, domain: domain
+                  size per_page
+                  from current_page-1
+                end.results
+              rescue Tire::Search::SearchRequestFailed => e
+                logger.info "*** ERROR Possible column non-searchable `#{column_name_sym}'. \r\n #{e.inspect}"
+                results = Tire.search(elastic_index_name) do
+                  query do
+                    string search_condition
+                  end
+
+                  filter :term, domain: domain
+                  size per_page
+                  from current_page-1
+                end.results
+              end
 
               objects = results.map{|r| modelCls[r.id] }
 
