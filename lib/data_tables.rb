@@ -87,6 +87,11 @@ module DataTablesController
               logger.debug "*** (datatable:#{__LINE__}) Using tire for search"
               elastic_index_name = modelCls.to_s.underscore
 
+            search_condition += '*' unless search_condition =~ /\*/
+            # search_condition = "\"#{search_condition}\"" unless search_condition =~ /\"/
+
+            logger.debug "*** search_condition = #{search_condition} "
+
               begin
                 results = Tire.search(elastic_index_name) do
                   query do
@@ -107,7 +112,6 @@ module DataTablesController
                   query do
                     string search_condition
                   end
-
                   filter :term, domain: domain
                   size per_page
                   from current_page-1
@@ -179,6 +183,9 @@ module DataTablesController
             sort_dir = params[:sSortDir_0] || 'desc'
 
             condstr += '*' unless condstr =~ /\*/
+            #condstr = "\"#{condstr}\"" unless condstr =~ /\"/
+
+            logger.debug "*** condstr = #{condstr} "
 
             begin
               query = Proc.new do
