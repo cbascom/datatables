@@ -123,13 +123,11 @@ module DataTablesController
                 end.results
               end
 
-              objects = results.map{|r| modelCls[r.id] }.compact
-
-              total_display_records = results.total
-              total_records = Tire.search(elastic_index_name, search_type: 'count') do
-                filter :term, domain: domain
-              end.results.total
-              # ----------- /Elasticsearch/Tire for Ohm ----------- #
+              objects = results.map{ |r| modelCls[r.id] }.compact
+              field = modelCls.to_s.downcase.gsub("status","")+'_id'
+              index_0 = objects.select{ |e| e.send(field) == "0" }.any? ? 1 : 0
+              objects.delete_if{ |e| e.send(field) == "0"}
+              total_display_records = results.total - index_0
             else
               #
               # -------- Redis/Lunar search --------------- #
