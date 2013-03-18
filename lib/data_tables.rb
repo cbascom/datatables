@@ -92,7 +92,7 @@ module DataTablesController
               logger.debug "*** (datatable:#{__LINE__}) Using tire for search"
               elastic_index_name = modelCls.to_s.underscore
 
-            search_condition += '*' unless search_condition =~ /(\*|\")/
+            search_condition = elasticsearch_sanitation(search_condition)
             # search_condition = "\"#{search_condition}\"" unless search_condition =~ /\"/
 
             logger.debug "*** search_condition = #{search_condition} "
@@ -123,7 +123,7 @@ module DataTablesController
                 end.results
               end
 
-              objects = results.map{|r| modelCls[r.id] }
+              objects = results.map{|r| modelCls[r.id] }.compact
 
               total_display_records = results.total
               total_records = Tire.search(elastic_index_name, search_type: 'count') do
@@ -194,8 +194,7 @@ module DataTablesController
             column_name = columns[sort_column][:name] || 'message'
             sort_dir = params[:sSortDir_0] || 'desc'
 
-            condstr += '*' unless condstr =~ /(\*|\")/
-            logger.debug "*** condstr = #{condstr} "
+            condstr = elasticsearch_sanitation(condstr)
 
             begin
               query = Proc.new do
@@ -346,6 +345,13 @@ module DataTablesController
         columnNames
       end
     end
+  end
+
+  def elasticsearch_sanitation(search_string)
+    logger.debug "*** elasticsearch_sanitation.before = #{search_string} "
+    search_string = "\"#{search_string}*\" OR *#{search_string.gsub(":","\\:")}*" unless search_string =~ /(\*|\")/
+    logger.debug "*** elasticsearch_sanitation.after = #{search_string} "
+    search_string
   end
 
   # gets the value for a column and row
