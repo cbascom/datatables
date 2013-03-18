@@ -96,38 +96,44 @@ module DataTablesController
             # search_condition = "\"#{search_condition}\"" unless search_condition =~ /\"/
 
             logger.debug "*** search_condition = #{search_condition} "
-
               begin
-                results = Tire.search(elastic_index_name) do
-                  query do
-                    string search_condition
-                  end
-
-                  sort do
-                    by column_name_sym, sort_dir
-                  end
-
-                  filter :term, domain: domain
-                  size per_page
-                  from current_page-1
-                end.results
+                begin
+                  results = Tire.search(elastic_index_name) do
+                    query do
+                      string search_condition
+                    end
+                    sort do
+                      by column_name_sym, sort_dir
+                    end
+                    filter :term, domain: domain
+                    size per_page
+                    from current_page-1
+                  end.results
+                rescue Tire::Search::SearchRequestFailed => e
+                  logger.info "*** ERROR Possible column non-searchable `#{column_name_sym}'. \r\n #{e.inspect}"
+                  results = Tire.search(elastic_index_name) do
+                    query do
+                      string search_condition
+                    end
+                    filter :term, domain: domain
+                    size per_page
+                    from current_page-1
+                  end.results
+                end
+                objects = results.map{ |r| modelCls[r.id] }.compact
+                field = modelCls.to_s.downcase.gsub("status","")+'_id'
+                index_0 = 0
+                if objects.first.respond_to?(field)
+                  index_0 = objects.select{ |e| e.send(field) == "0" }.any? ? 1 : 0
+                  objects.delete_if{ |e| e.send(field) == "0"}
+                end
+                total_display_records = results.total - index_0
               rescue Tire::Search::SearchRequestFailed => e
-                logger.info "*** ERROR Possible column non-searchable `#{column_name_sym}'. \r\n #{e.inspect}"
-                results = Tire.search(elastic_index_name) do
-                  query do
-                    string search_condition
-                  end
-                  filter :term, domain: domain
-                  size per_page
-                  from current_page-1
-                end.results
+                logger.info "*** ERROR: Tire::Search::SearchRequestFailed => #{e.inspect} "
+                objects = []
+                total_display_records = 0
+                total_records = 0
               end
-
-              objects = results.map{ |r| modelCls[r.id] }.compact
-              field = modelCls.to_s.downcase.gsub("status","")+'_id'
-              index_0 = objects.select{ |e| e.send(field) == "0" }.any? ? 1 : 0
-              objects.delete_if{ |e| e.send(field) == "0"}
-              total_display_records = results.total - index_0
             else
               #
               # -------- Redis/Lunar search --------------- #
@@ -300,7 +306,7 @@ module DataTablesController
               :aaData => data,
               :sEcho => params[:sEcho].to_i}.to_json
             #
-            # ------- Postgres ----------- #
+            # ------- /Postgres ----------- #
             #
           end
         end
