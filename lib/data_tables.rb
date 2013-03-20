@@ -85,17 +85,16 @@ module DataTablesController
             end
             total_display_records = total_records
           else # search_condition
-            #
-            # ----------- Elasticsearch/Tire for Ohm ----------- #
-            #
             if defined? Tire
-              logger.debug "*** (datatable:#{__LINE__}) Using tire for search"
+              #
+              # ----------- Elasticsearch/Tire for Ohm ----------- #
+              #
               elastic_index_name = modelCls.to_s.underscore
+              logger.debug "*** (datatable:#{__LINE__}) Using tire for search #{modelCls} (#{elastic_index_name})"
 
-            search_condition = elasticsearch_sanitation(search_condition)
-            # search_condition = "\"#{search_condition}\"" unless search_condition =~ /\"/
+              search_condition = elasticsearch_sanitation(search_condition)
+              logger.debug "*** search_condition = #{search_condition}; sort by #{column_name_sym}:#{sort_dir}; domain=`#{domain.inspect}'"
 
-            logger.debug "*** search_condition = #{search_condition} "
               begin
                 begin
                   results = Tire.search(elastic_index_name) do
@@ -105,17 +104,17 @@ module DataTablesController
                     sort do
                       by column_name_sym, sort_dir
                     end
-                    filter :term, domain: domain
+                    filter(:term, domain: domain) unless domain.blank?
                     size per_page
                     from current_page-1
                   end.results
                 rescue Tire::Search::SearchRequestFailed => e
-                  logger.info "*** ERROR Possible column non-searchable `#{column_name_sym}'. \r\n #{e.inspect}"
+                  logger.info "*** ERROR Possible column non-sortable `#{column_name_sym}'. \r\n #{e.inspect}"
                   results = Tire.search(elastic_index_name) do
                     query do
                       string search_condition
                     end
-                    filter :term, domain: domain
+                    filter(:term, domain: domain) unless domain.blank?
                     size per_page
                     from current_page-1
                   end.results
@@ -203,7 +202,7 @@ module DataTablesController
             begin
               query = Proc.new do
                 query { string(condstr) }
-                filter :term, domain: domain_name
+                filter(:term, domain: domain_name) unless domain_name.blank?
               end
 
               results = modelCls.search(page: current_page,
@@ -213,7 +212,7 @@ module DataTablesController
               objects = results.to_a
               total_display_records = results.total
               total_records = modelCls.search(search_type: 'count') do
-                filter :term, domain: domain_name
+                filter(:term, domain: domain_name) unless domain_name.blank?
               end.total
             rescue Tire::Search::SearchRequestFailed => e
               logger.debug "[Tire::Search::SearchRequestFailed] #{e.inspect}\n#{e.backtrace.join("\n")}"
