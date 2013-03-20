@@ -352,7 +352,7 @@ module DataTablesController
 
   def elasticsearch_sanitation(search_string)
     logger.debug "*** elasticsearch_sanitation.before = #{search_string} "
-    search_string = "\"#{search_string}*\" OR *#{search_string.gsub(":","\\:")}*" unless search_string =~ /(\*|\")/
+    search_string = "\"#{search_string}*\" OR #{search_string.gsub(":","\\:")}*" unless search_string =~ /(\*|\")/
     logger.debug "*** elasticsearch_sanitation.after = #{search_string} "
     search_string
   end
