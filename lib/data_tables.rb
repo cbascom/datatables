@@ -44,6 +44,7 @@ module DataTablesController
       named_scope = options[:named_scope]
       named_scope_args = options[:named_scope_args]
       except = options[:except]
+      es_block = options[:es_block]
 
       #
       # ------- Ohm ----------- #
@@ -203,6 +204,7 @@ module DataTablesController
               query = Proc.new do
                 query { string(condstr) }
                 filter(:term, domain: domain_name) unless domain_name.blank?
+                es_block.call(self) if es_block.respond_to?(:call)
               end
 
               results = modelCls.search(page: current_page,
@@ -213,6 +215,7 @@ module DataTablesController
               total_display_records = results.total
               total_records = modelCls.search(search_type: 'count') do
                 filter(:term, domain: domain_name) unless domain_name.blank?
+                es_block.call(self) if es_block.respond_to?(:call)
               end.total
             rescue Tire::Search::SearchRequestFailed => e
               logger.debug "[Tire::Search::SearchRequestFailed] #{e.inspect}\n#{e.backtrace.join("\n")}"
