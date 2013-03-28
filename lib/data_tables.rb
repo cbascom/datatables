@@ -67,97 +67,84 @@ module DataTablesController
           sort_column = params[:iSortCol_0].to_i
           sort_column = 1 if sort_column == 0
           current_page = (params[:iDisplayStart].to_i/params[:iDisplayLength].to_i rescue 0) + 1
-          per_page = params[:iDisplayLength] || 10
+          per_page = params[:iDisplayLength].to_i || 10
           sort_dir = params[:sSortDir_0] || 'desc'
           column_name_sym = columns[sort_column][:name].to_sym
 
           objects = nil
-          if search_condition.nil?
-            logger.debug "*** (datatable:#{__LINE__}) search_condition.nil? = true"
-            if Gem.loaded_specs['ohm'].version == Gem::Version.create('0.1.5')
-              objects = records.sort_by(columns[sort_column][:name].to_sym,
-                                        :order => "ALPHA " + params[:sSortDir_0].capitalize,
-                                        :start => params[:iDisplayStart].to_i,
-                                        :limit => params[:iDisplayLength].to_i)
-            else
-              objects = records.sort_by(columns[sort_column][:name].to_sym,
-                                        :order => "ALPHA " + params[:sSortDir_0].capitalize,
-                                        :limit => [params[:iDisplayStart].to_i, params[:iDisplayLength].to_i])
-            end
-            total_display_records = total_records
-          else # search_condition
-            if defined? Tire
-              #
-              # ----------- Elasticsearch/Tire for Ohm ----------- #
-              #
-              elastic_index_name = modelCls.to_s.underscore
-              logger.debug "*** (datatable:#{__LINE__}) Using tire for search #{modelCls} (#{elastic_index_name})"
 
-              search_condition = elasticsearch_sanitation(search_condition)
-              logger.debug "*** search_condition = #{search_condition}; sort by #{column_name_sym}:#{sort_dir}; domain=`#{domain.inspect}'"
+          if defined? Tire
+            #
+            # ----------- Elasticsearch/Tire for Ohm ----------- #
+            #
+            elastic_index_name = modelCls.to_s.underscore
+            logger.debug "*** (datatable:#{__LINE__}) Using tire for search #{modelCls} (#{elastic_index_name})"
 
+            search_condition = elasticsearch_sanitation(search_condition)
+            logger.debug "*** search_condition = #{search_condition}; sort by #{column_name_sym}:#{sort_dir}; domain=`#{domain.inspect}'"
+
+            begin
               begin
-                begin
-                  results = Tire.search(elastic_index_name) do
-                    query do
-                      string search_condition
-                    end
-                    sort do
-                      by column_name_sym, sort_dir
-                    end
-                    filter(:term, domain: domain) unless domain.blank?
-                    size per_page
-                    from current_page-1
-                  end.results
-                rescue Tire::Search::SearchRequestFailed => e
-                  logger.info "*** ERROR Possible column non-sortable `#{column_name_sym}'. \r\n #{e.inspect}"
-                  results = Tire.search(elastic_index_name) do
-                    query do
-                      string search_condition
-                    end
-                    filter(:term, domain: domain) unless domain.blank?
-                    size per_page
-                    from current_page-1
-                  end.results
-                end
-                objects = results.map{ |r| modelCls[r.id] }.compact
-                field = modelCls.to_s.downcase.gsub("status","")+'_id'
-                index_0 = 0
-                if objects.first.respond_to?(field)
-                  index_0 = objects.select{ |e| e.send(field) == "0" }.any? ? 1 : 0
-                  objects.delete_if{ |e| e.send(field) == "0"}
-                end
-                total_display_records = results.total - index_0
+                results = Tire.search(elastic_index_name) do
+                  query do
+                    string search_condition
+                  end
+                  sort do
+                    by column_name_sym, sort_dir
+                  end
+                  filter(:term, domain: domain) unless domain.blank?
+                  from (current_page-1) * per_page.to_i
+                  size per_page
+                end.results
               rescue Tire::Search::SearchRequestFailed => e
-                logger.info "*** ERROR: Tire::Search::SearchRequestFailed => #{e.inspect} "
-                objects = []
-                total_display_records = 0
-                total_records = 0
+                logger.info "*** ERROR Possible column non-sortable `#{column_name_sym}'. \r\n #{e.inspect}"
+                results = Tire.search(elastic_index_name) do
+                  query do
+                    string search_condition
+                  end
+                  filter(:term, domain: domain) unless domain.blank?
+                  size per_page
+                  from (current_page-1) * per_page
+                end.results
               end
-            else
-              #
-              # -------- Redis/Lunar search --------------- #
-              #
-              logger.debug "*** (datatable:#{__LINE__}) NOT using tire for search"
-              options = {}
-              domain_id = domain.split("_")[1].to_i if scope == :domain
-              options[:domain] = domain_id .. domain_id if scope == :domain
-              options[:fuzzy] = {columns[sort_column][:name].to_sym => search_condition}
-              objects = Lunar.search(modelCls, options)
-              total_display_records = objects.size
-              if Gem.loaded_specs['ohm'].version == Gem::Version.create('0.1.5')
-                objects = objects.sort(:by => columns[sort_column][:name].to_sym,
-                                       :order => "ALPHA " + params[:sSortDir_0].capitalize,
-                                       :start => params[:iDisplayStart].to_i,
-                                       :limit => params[:iDisplayLength].to_i)
-              else
-                objects = objects.sort(:by => columns[sort_column][:name].to_sym,
-                                       :order => "ALPHA " + params[:sSortDir_0].capitalize,
-                                       :limit => [params[:iDisplayStart].to_i, params[:iDisplayLength].to_i])
+              objects = results.map{ |r| modelCls[r.id] }.compact
+              field = modelCls.to_s.downcase.gsub("status","")+'_id'
+              index_0 = 0
+              if objects.first.respond_to?(field)
+                index_0 = objects.select{ |e| e.send(field) == "0" }.any? ? 1 : 0
+                objects.delete_if{ |e| e.send(field) == "0"}
               end
-              # -------- Redis/Lunar search --------------- #
+              total_display_records = results.total - index_0
+            rescue Tire::Search::SearchRequestFailed => e
+              logger.info "*** ERROR: Tire::Search::SearchRequestFailed => #{e.inspect} "
+              objects = []
+              total_display_records = 0
+              total_records = 0
             end
+          else
+            #
+            # -------- Redis/Lunar search --------------- #
+            #
+            logger.debug "*** (datatable:#{__LINE__}) NOT using tire for search"
+            options = {}
+            domain_id = domain.split("_")[1].to_i if scope == :domain
+            options[:domain] = domain_id .. domain_id if scope == :domain
+            options[:fuzzy] = {columns[sort_column][:name].to_sym => search_condition}
+            objects = Lunar.search(modelCls, options)
+            total_display_records = objects.size
+            if Gem.loaded_specs['ohm'].version == Gem::Version.create('0.1.5')
+              objects = objects.sort(:by => columns[sort_column][:name].to_sym,
+                                     :order => "ALPHA " + params[:sSortDir_0].capitalize,
+                                     :start => params[:iDisplayStart].to_i,
+                                     :limit => params[:iDisplayLength].to_i)
+            else
+              objects = objects.sort(:by => columns[sort_column][:name].to_sym,
+                                     :order => "ALPHA " + params[:sSortDir_0].capitalize,
+                                     :limit => [params[:iDisplayStart].to_i, params[:iDisplayLength].to_i])
+            end
+            # -------- Redis/Lunar search --------------- #
           end
+
           data = objects.collect do |instance|
             columns.collect { |column| datatables_instance_get_value(instance, column) }
           end
@@ -354,6 +341,7 @@ module DataTablesController
   end
 
   def elasticsearch_sanitation(search_string)
+    return '*' if search_string.nil?
     logger.debug "*** elasticsearch_sanitation.before = #{search_string} "
     search_string = "\"#{search_string}*\" OR #{search_string.gsub(":","\\:")}*" unless search_string =~ /(\*|\")/
     logger.debug "*** elasticsearch_sanitation.after = #{search_string} "
