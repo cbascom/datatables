@@ -64,6 +64,7 @@ module DataTablesController
             end
           end
           total_records = records.size
+
           sort_column = params[:iSortCol_0].to_i
           sort_column = 1 if sort_column == 0
           current_page = (params[:iDisplayStart].to_i/params[:iDisplayLength].to_i rescue 0) + 1
@@ -80,14 +81,17 @@ module DataTablesController
             elastic_index_name = modelCls.to_s.underscore
             logger.debug "*** (datatable:#{__LINE__}) Using tire for search #{modelCls} (#{elastic_index_name})"
 
-            search_condition = elasticsearch_sanitation(search_condition)
+            search_condition = elasticsearch_sanitation(search_condition, except)
+            just_excepts = elasticsearch_sanitation(nil, except)
             logger.debug "*** search_condition = #{search_condition}; sort by #{column_name_sym}:#{sort_dir}; domain=`#{domain.inspect}'"
 
             retried = 0
             begin
               results = Tire.search(elastic_index_name) do
-                query do
-                  string search_condition
+                if retried < 2
+                  query { string search_condition }
+                else
+                  query { string just_excepts }
                 end
                 sort{ by column_name_sym, sort_dir } if retried < 1
                 filter(:term, domain: domain) unless domain.blank?
@@ -97,19 +101,12 @@ module DataTablesController
               end.results
 
               objects = results.map{ |r| modelCls[r.id] }.compact
-              field = modelCls.to_s.downcase.gsub("status","")+'_id'
-              index_0 = 0
-              # do not show elements with ID 0
-              if objects.first.respond_to?(field)
-                index_0 = objects.select{ |e| e.send(field) == "0" }.any? ? 1 : 0
-                objects.delete_if{ |e| e.send(field) == "0"}
-              end
-              total_display_records = results.total - index_0
+              total_display_records = results.total
             rescue Tire::Search::SearchRequestFailed => e
               logger.info "*** ERROR: Tire::Search::SearchRequestFailed => #{e.inspect} "
-              if retried < 1
-                logger.info "*** Possible non-sortable column `#{column_name_sym}'). Will retry w/o it."
+              if retried < 2
                 retried += 1
+                logger.info "Will retry #(#{retried})."
                 retry
               else
                 objects = []
@@ -336,10 +333,12 @@ module DataTablesController
     end
   end
 
-  def elasticsearch_sanitation(search_string)
-    return '*' if search_string.nil?
+  def elasticsearch_sanitation(search_string, except)
     logger.debug "*** elasticsearch_sanitation.before = #{search_string} "
-    search_string = "\"#{search_string}*\" OR #{search_string.gsub(":","\\:")}*" unless search_string =~ /(\*|\")/
+    search_string = '*' if search_string.blank?
+    search_string = "(\"#{search_string}*\" OR #{search_string.gsub(":","\\:")}*) " unless search_string =~ /(\*|\")/
+    exceptions = except.map { |f|  "NOT #{f[0]}:\"#{f[1]}\""}.join(" AND ") if except
+    search_string += " AND " + exceptions if exceptions
     logger.debug "*** elasticsearch_sanitation.after = #{search_string} "
     search_string
   end
