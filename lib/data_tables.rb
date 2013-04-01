@@ -83,33 +83,23 @@ module DataTablesController
             search_condition = elasticsearch_sanitation(search_condition)
             logger.debug "*** search_condition = #{search_condition}; sort by #{column_name_sym}:#{sort_dir}; domain=`#{domain.inspect}'"
 
+            retried = 0
             begin
-              begin
-                results = Tire.search(elastic_index_name) do
-                  query do
-                    string search_condition
-                  end
-                  sort do
-                    by column_name_sym, sort_dir
-                  end
-                  filter(:term, domain: domain) unless domain.blank?
-                  from (current_page-1) * per_page.to_i
-                  size per_page
-                end.results
-              rescue Tire::Search::SearchRequestFailed => e
-                logger.info "*** ERROR Possible column non-sortable `#{column_name_sym}'. \r\n #{e.inspect}"
-                results = Tire.search(elastic_index_name) do
-                  query do
-                    string search_condition
-                  end
-                  filter(:term, domain: domain) unless domain.blank?
-                  size per_page
-                  from (current_page-1) * per_page
-                end.results
-              end
+              results = Tire.search(elastic_index_name) do
+                query do
+                  string search_condition
+                end
+                sort{ by column_name_sym, sort_dir } if retried < 1
+                filter(:term, domain: domain) unless domain.blank?
+                es_block.call(self) if es_block.respond_to?(:call)
+                from (current_page-1) * per_page
+                size per_page
+              end.results
+
               objects = results.map{ |r| modelCls[r.id] }.compact
               field = modelCls.to_s.downcase.gsub("status","")+'_id'
               index_0 = 0
+              # do not show elements with ID 0
               if objects.first.respond_to?(field)
                 index_0 = objects.select{ |e| e.send(field) == "0" }.any? ? 1 : 0
                 objects.delete_if{ |e| e.send(field) == "0"}
@@ -117,9 +107,15 @@ module DataTablesController
               total_display_records = results.total - index_0
             rescue Tire::Search::SearchRequestFailed => e
               logger.info "*** ERROR: Tire::Search::SearchRequestFailed => #{e.inspect} "
-              objects = []
-              total_display_records = 0
-              total_records = 0
+              if retried < 1
+                logger.info "*** Possible non-sortable column `#{column_name_sym}'). Will retry w/o it."
+                retried += 1
+                retry
+              else
+                objects = []
+                total_display_records = 0
+                total_records = 0
+              end
             end
           else
             #
