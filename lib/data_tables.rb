@@ -82,7 +82,7 @@ module DataTablesController
             logger.debug "*** (datatable:#{__LINE__}) Using tire for search #{modelCls} (#{elastic_index_name})"
 
             search_condition = elasticsearch_sanitation(search_condition, except)
-            just_excepts = elasticsearch_sanitation(nil, except)
+            just_excepts = except ? elasticsearch_sanitation(nil, except) : "*"
             logger.debug "*** search_condition = #{search_condition}; sort by #{column_name_sym}:#{sort_dir}; domain=`#{domain.inspect}'"
 
             retried = 0

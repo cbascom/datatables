@@ -43,7 +43,7 @@ module DataTablesHelper
       index += 1
       memo
     end
-    options[:aaSorting] = [[first_searchable_column_index, 'asc']]
+    options[:aaSorting] ||= [[first_searchable_column_index, 'asc']]
     options[:aoColumnDefs] ||= []
     options[:aoColumnDefs].unshift({
                                      :aTargets => targets,
