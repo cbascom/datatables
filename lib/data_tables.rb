@@ -68,7 +68,8 @@ module DataTablesController
           sort_column = params[:iSortCol_0].to_i
           sort_column = 1 if sort_column == 0
           current_page = (params[:iDisplayStart].to_i/params[:iDisplayLength].to_i rescue 0) + 1
-          per_page = params[:iDisplayLength].to_i || 10
+          per_page = params[:iDisplayLength] || 10
+          per_page = per_page.to_i
           sort_dir = params[:sSortDir_0] || 'desc'
           column_name_sym = columns[sort_column][:name].to_sym
 
@@ -88,12 +89,17 @@ module DataTablesController
             retried = 0
             begin
               results = Tire.search(elastic_index_name) do
+
+                # retry #2 exclude search terms (and sorting) from search query
                 if retried < 2
                   query { string search_condition }
                 else
                   query { string just_excepts }
                 end
+
+                # retry #1 exclude sorting from search query
                 sort{ by column_name_sym, sort_dir } if retried < 1
+
                 filter(:term, domain: domain) unless domain.blank?
                 es_block.call(self) if es_block.respond_to?(:call)
                 from (current_page-1) * per_page
