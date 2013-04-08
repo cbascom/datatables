@@ -73,7 +73,7 @@ module DataTablesController
           sort_dir = params[:sSortDir_0] || 'desc'
           column_name_sym = columns[sort_column][:name].to_sym
 
-          objects = nil
+          objects = []
 
           if defined? Tire
             #
@@ -86,39 +86,41 @@ module DataTablesController
             just_excepts = except ? elasticsearch_sanitation(nil, except) : "*"
             logger.debug "*** search_condition = #{search_condition}; sort by #{column_name_sym}:#{sort_dir}; domain=`#{domain.inspect}'"
 
+            total_display_records = 0
+            total_records = 0
             retried = 0
-            begin
-              results = Tire.search(elastic_index_name) do
+            if Tire.index(elastic_index_name){exists?}.response.code != 404
+              begin
+                results = Tire.search(elastic_index_name) do
 
-                # retry #2 exclude search terms (and sorting) from search query
+                  # retry #2 exclude search terms (and sorting) from search query
+                  if retried < 2
+                    query { string search_condition }
+                  else
+                    query { string just_excepts }
+                  end
+
+                  # retry #1 exclude sorting from search query
+                  sort{ by column_name_sym, sort_dir } if retried < 1
+
+                  filter(:term, domain: domain) unless domain.blank?
+                  es_block.call(self) if es_block.respond_to?(:call)
+                  from (current_page-1) * per_page
+                  size per_page
+                end.results
+
+                objects = results.map{ |r| modelCls[r.id] }.compact
+                total_display_records = results.total
+              rescue Tire::Search::SearchRequestFailed => e
                 if retried < 2
-                  query { string search_condition }
-                else
-                  query { string just_excepts }
+                  retried += 1
+                  logger.info "Will retry(#{retried}) again because #{e.inspect}"
+                  retry
                 end
-
-                # retry #1 exclude sorting from search query
-                sort{ by column_name_sym, sort_dir } if retried < 1
-
-                filter(:term, domain: domain) unless domain.blank?
-                es_block.call(self) if es_block.respond_to?(:call)
-                from (current_page-1) * per_page
-                size per_page
-              end.results
-
-              objects = results.map{ |r| modelCls[r.id] }.compact
-              total_display_records = results.total
-            rescue Tire::Search::SearchRequestFailed => e
-              logger.info "*** ERROR: Tire::Search::SearchRequestFailed => #{e.inspect} "
-              if retried < 2
-                retried += 1
-                logger.info "Will retry #(#{retried})."
-                retry
-              else
-                objects = []
-                total_display_records = 0
-                total_records = 0
+                logger.info "*** ERROR: Tire::Search::SearchRequestFailed => #{e.inspect}"
               end
+            else
+              logger.debug "Index #{elastic_index_name} does not exists yet in ES."
             end
           else
             #
