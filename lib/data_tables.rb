@@ -180,7 +180,6 @@ module DataTablesController
             end
 
             sort_column = params[:iSortCol_0].to_i
-            sort_column = 1 if sort_column == 0
             current_page = (params[:iDisplayStart].to_i/params[:iDisplayLength].to_i rescue 0)+1
             per_page = params[:iDisplayLength] || 10
             column_name = columns[sort_column][:name] || 'message'
