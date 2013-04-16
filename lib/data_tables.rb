@@ -111,6 +111,10 @@ module DataTablesController
 
                 objects = results.map{ |r| modelCls[r.id] }.compact
                 total_display_records = results.total
+                total_records = Tire.search(elastic_index_name, search_type: 'count') do
+                  filter(:term, domain: domain) unless domain.blank?
+                  es_block.call(self) if es_block.respond_to?(:call)
+                end.results.total
               rescue Tire::Search::SearchRequestFailed => e
                 if retried < 2
                   retried += 1
