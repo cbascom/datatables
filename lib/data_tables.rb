@@ -57,13 +57,6 @@ module DataTablesController
             return if domain.nil?
           end
           search_condition = params[:sSearch].blank? ? nil : params[:sSearch].to_s
-          records = scope == :domain ? modelCls.find(:domain => domain) : modelCls.all
-          if except
-            except.each do |f|
-              records = records.except(f[0].to_sym => f[1])
-            end
-          end
-          total_records = records.size
 
           sort_column = params[:iSortCol_0].to_i
           sort_column = 1 if sort_column == 0
@@ -74,6 +67,8 @@ module DataTablesController
           column_name_sym = columns[sort_column][:name].to_sym
 
           objects = []
+          total_display_records = 0
+          total_records = 0
 
           if defined? Tire
             #
@@ -86,8 +81,6 @@ module DataTablesController
             just_excepts = except ? elasticsearch_sanitation(nil, except) : "*"
             logger.debug "*** search_condition = #{search_condition}; sort by #{column_name_sym}:#{sort_dir}; domain=`#{domain.inspect}'"
 
-            total_display_records = 0
-            total_records = 0
             retried = 0
             if Tire.index(elastic_index_name){exists?}.response.code != 404
               begin
@@ -109,7 +102,7 @@ module DataTablesController
                   size per_page
                 end.results
 
-                objects = results.map{ |r| modelCls[r.id] }.compact
+                objects = results.map{ |r| modelCls[r._id] }.compact
                 total_display_records = results.total
                 total_records = Tire.search(elastic_index_name, search_type: 'count') do
                   filter(:term, domain: domain) unless domain.blank?
@@ -130,6 +123,14 @@ module DataTablesController
             #
             # -------- Redis/Lunar search --------------- #
             #
+            records = scope == :domain ? modelCls.find(:domain => domain) : modelCls.all
+            if except
+              except.each do |f|
+                records = records.except(f[0].to_sym => f[1])
+              end
+            end
+            total_records = records.size
+
             logger.debug "*** (datatable:#{__LINE__}) NOT using tire for search"
             options = {}
             domain_id = domain.split("_")[1].to_i if scope == :domain
