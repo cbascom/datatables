@@ -1,4 +1,5 @@
 require "data_tables/data_tables_helper"
+
 module DataTablesController
   def self.included(cls)
     cls.extend(ClassMethods)
@@ -50,8 +51,10 @@ module DataTablesController
       # ------- Ohm ----------- #
       #
       if modelCls < Ohm::Model
+
         define_method action.to_sym do
           logger.debug "[tire] (datatable:#{__LINE__}) #{action.to_sym} #{modelCls} < Ohm::Model"
+
           if scope == :domain
             domain = ActiveRecord::Base.connection.schema_search_path.to_s.split(",")[0]
             return if domain.nil?
@@ -74,7 +77,7 @@ module DataTablesController
             #
             # ----------- Elasticsearch/Tire for Ohm ----------- #
             #
-            elastic_index_name = modelCls.to_s.underscore
+            elastic_index_name = "#{Tire::Model::Search.index_prefix}#{modelCls.to_s.underscore}"
             logger.debug "*** (datatable:#{__LINE__}) Using tire for search #{modelCls} (#{elastic_index_name})"
 
             search_condition = elasticsearch_sanitation(search_condition, except)
@@ -105,6 +108,7 @@ module DataTablesController
                 objects = results.map{ |r| modelCls[r._id] }.compact
                 total_display_records = results.total
                 total_records = Tire.search(elastic_index_name, search_type: 'count') do
+                  query { string just_excepts }
                   filter(:term, domain: domain) unless domain.blank?
                   es_block.call(self) if es_block.respond_to?(:call)
                 end.results.total
@@ -123,6 +127,7 @@ module DataTablesController
             #
             # -------- Redis/Lunar search --------------- #
             #
+            logger.debug "*** (datatable:#{__LINE__}) Using Redis/Lunar for search #{modelCls} (#{elastic_index_name})"
             records = scope == :domain ? modelCls.find(:domain => domain) : modelCls.all
             if except
               except.each do |f|
