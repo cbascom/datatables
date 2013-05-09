@@ -354,8 +354,8 @@ module DataTablesController
     logger.debug "*** elasticsearch_sanitation.before = `#{search_string}'"
     search_string = '*' if search_string.blank?
     search_string.strip!
-    numerical_search = (search_string.split.count > 1) ? "" : "OR #{search_string.gsub(":","\\:")}*"
-    search_string = "(\"#{search_string}*\" #{numerical_search}) " unless search_string =~ /(\*|\")/
+    numerical_search = (search_string.split.count > 1) ? "" : "OR *#{search_string.gsub(":","\\:")}*"
+    search_string = "(\"*#{search_string}*\" #{numerical_search}) " unless search_string =~ /(\*|\")/
     exceptions = except.map { |f|  "NOT #{f[0]}:\"#{f[1]}\""}.join(" AND ") if except
     search_string += " AND " + exceptions if exceptions
     logger.debug "*** elasticsearch_sanitation.after = `#{search_string}'"
