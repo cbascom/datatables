@@ -243,7 +243,7 @@ module DataTablesController
               sort_column_id = params[:iSortCol_0].to_i
               sort_column_id = 1 if sort_column_id == 0
               sort_column = columns[sort_column_id]
-              condstr = params[:sSearch].gsub(/_/, '\\\\_').gsub(/%/, '\\\\%')
+              condstr = params[:sSearch].strip.gsub(/_/, '\\\\_').gsub(/%/, '\\\\%')
 
               search_columns = options[:columns].map{|e| e.class == Symbol ? e : nil }.compact
               condition_local = search_columns.map do |column_name|
