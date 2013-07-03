@@ -51,7 +51,6 @@ module DataTablesController
       # ------- Ohm ----------- #
       #
       if modelCls < Ohm::Model
-
         define_method action.to_sym do
           logger.debug "[tire] (datatable:#{__LINE__}) #{action.to_sym} #{modelCls} < Ohm::Model"
 
@@ -87,8 +86,8 @@ module DataTablesController
             retried = 0
             if Tire.index(elastic_index_name){exists?}.response.code != 404
               begin
+                controller_instance = self
                 results = Tire.search(elastic_index_name) do
-
                   # retry #2 exclude search terms (and sorting) from search query
                   if retried < 2
                     query { string search_condition }
@@ -100,13 +99,19 @@ module DataTablesController
                   sort{ by column_name_sym, sort_dir } if retried < 1
 
                   filter(:term, domain: domain) unless domain.blank?
-                  es_block.call(self) if es_block.respond_to?(:call)
+                  if es_block.is_a?(Symbol)
+                    controller_instance.send(es_block, self)
+                  else
+                    es_block.call(self) if es_block.respond_to?(:call)
+                  end
                   from (current_page-1) * per_page
                   size per_page
                 end.results
 
                 objects = results.map{ |r| modelCls[r._id] }.compact
                 total_display_records = results.total
+
+
                 total_records = Tire.search(elastic_index_name, search_type: 'count') do
                   query { string just_excepts }
                   filter(:term, domain: domain) unless domain.blank?
