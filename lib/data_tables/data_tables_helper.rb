@@ -32,7 +32,9 @@ module DataTablesHelper
     # options[:sDom].delete(:f)
 
     datatable = controller.datatable_source(source)
-    options[:sAjaxSource] = method("#{datatable[:action]}_url".to_sym).call
+    url_query_params = opts[:urlQueryParams] || {}
+    options[:sAjaxSource] = opts[:sAjaxSource] ||
+        method("#{datatable[:action]}_url".to_sym).call(url_query_params)
     columns = datatable[:attrs].keys.collect { |a| "<th>#{a}</th>" }.join
 
     index = 0
