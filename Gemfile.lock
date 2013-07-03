@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    data_tables (0.1.8)
+    data_tables (0.1.9)
 
 GEM
   remote: https://rubygems.org/
@@ -22,8 +22,6 @@ GEM
     builder (3.0.4)
     coderay (1.0.9)
     diff-lcs (1.2.1)
-    factory_girl (3.5.0)
-      activesupport (>= 3.0.0)
     ffi (1.7.0)
     formatador (0.2.4)
     guard (1.7.0)
@@ -85,7 +83,6 @@ PLATFORMS
 DEPENDENCIES
   activerecord
   data_tables!
-  factory_girl (~> 3.4)
   guard-rspec
   ohm
   rb-inotify (~> 0.9)
