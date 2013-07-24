@@ -22,6 +22,21 @@ module DataTablesHelper
       }
     }"
 
+    options[:fnServerData] ||= "function ( sSource, aoData, fnCallback ) {
+      var init_sSearch = $('#init_sSearch');
+      if(init_sSearch != undefined && init_sSearch.val() != '' && init_sSearch.size() != 0) {
+        $('.dataTables_filter input').val(init_sSearch.val());
+        aoData.push( { name:'sSearch', value: init_sSearch.val() });
+        $('#init_sSearch').remove();
+      }
+      $.ajax( {
+                'dataType': 'json',
+                'url': sSource,
+                'data': aoData,
+                'success': fnCallback
+                });
+      }"
+      
     sdom = options[:bFilter] ? '<"#datatables_search_hint">lfrtip' : 'lrtip'
     sdom = "C<\"clear\">" + sdom if options[:oColVis]
     sdom = 'T' + sdom if options[:oTableTools]
