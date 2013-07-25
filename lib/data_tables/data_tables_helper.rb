@@ -7,6 +7,10 @@ module DataTablesHelper
     options[:bServerSide] = true unless options.has_key?(:bServerSide)
     options[:bAutoWidth] = false unless options.has_key?(:bAutoWidth)
     options[:bStateSave] = true unless options.has_key?(:bStateSave)
+    options[:sScrollY] = "200px"
+    options[:sScrollX] = '100%'
+    options[:bScrollCollapse] = true
+    options[:bDeferRender] = true
     options[:oColVis] ||= {}
     options[:bFilter] = true
     options[:oColVis][:aiExclude] ||= []
@@ -36,6 +40,10 @@ module DataTablesHelper
                 'success': fnCallback
                 });
       }"
+
+    options[:fnDrawCallback] = "function() {
+      change_scrollY();
+    }"
       
     sdom = options[:bFilter] ? '<"#datatables_search_hint">lfrtip' : 'lrtip'
     sdom = "C<\"clear\">" + sdom if options[:oColVis]
@@ -86,6 +94,28 @@ $(document).ready(function() {
         } );
 
 });
+
+  function change_scrollY() {
+    resize_column_width();
+    h = $('##{source}').height();
+    if( h > $(window).height() *55/100 )
+    {
+      $('.dataTables_scrollBody').css('height', ($(window).height() *55/100));
+    }
+    else
+    {
+      $('.dataTables_scrollBody').css('height', h+20);
+    }
+  }
+  
+  function resize_column_width() {
+    $('.dataTables_scrollHeadInner').width('100%');
+    $('.dataTable').width('100%');
+    $('##{datatable[:action]}').dataTable().fnAdjustColumnSizing(false);
+  }
+
+  $(window).resize(change_scrollY);
+
 </script>
 <table id=\"#{datatable[:action]}\" #{html_opts}>
 <thead>
