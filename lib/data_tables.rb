@@ -79,20 +79,25 @@ module DataTablesController
             elastic_index_name = "#{Tire::Model::Search.index_prefix}#{modelCls.to_s.underscore}"
             logger.debug "*** (datatable:#{__LINE__}) Using tire for search #{modelCls} (#{elastic_index_name})"
 
-            search_condition = elasticsearch_sanitation(search_condition, except)
-            just_excepts = except ? elasticsearch_sanitation(nil, except) : "*"
-            logger.debug "*** search_condition = #{search_condition}; sort by #{column_name_sym}:#{sort_dir}; domain=`#{domain.inspect}'"
+            except_list = except || []
 
             retried = 0
             if Tire.index(elastic_index_name){exists?}.response.code != 404
               begin
                 controller_instance = self
                 results = Tire.search(elastic_index_name) do
-                  # retry #2 exclude search terms (and sorting) from search query
-                  if retried < 2
-                    query { string search_condition }
-                  else
-                    query { string just_excepts }
+                  query do
+                    boolean do
+                      if search_condition && retried < 2
+                        must { match :_all, search_condition, type: 'phrase_prefix' }
+                      else
+                        must { all }
+                      end
+
+                      except_list.each do |expt|
+                        must_not { term expt[0].to_sym, expt[1].to_s }
+                      end
+                    end
                   end
 
                   # retry #1 exclude sorting from search query
@@ -111,9 +116,15 @@ module DataTablesController
                 objects = results.map{ |r| modelCls[r._id] }.compact
                 total_display_records = results.total
 
-
                 total_records = Tire.search(elastic_index_name, search_type: 'count') do
-                  query { string just_excepts }
+                  query do
+                    boolean do
+                      must { all }
+                      except_list.each do |expt|
+                        must_not { term expt[0].to_sym, expt[1].to_s }
+                      end
+                    end
+                  end
                   filter(:term, domain: domain) unless domain.blank?
                   es_block.call(self) if es_block.respond_to?(:call)
                 end.results.total
@@ -184,7 +195,7 @@ module DataTablesController
             logger.debug "*** Using ElasticSearch for #{modelCls.name}"
             objects =  []
 
-            condstr = ""
+            condstr = nil
             unless params[:sSearch].blank?
               sort_column_id = params[:iSortCol_0].to_i
               sort_column_id = 1 if sort_column_id == 0
@@ -200,11 +211,20 @@ module DataTablesController
             column_name = columns[sort_column][:name] || 'message'
             sort_dir = params[:sSortDir_0] || 'desc'
 
-            condstr = elasticsearch_sanitation(condstr, except)
-
             begin
               query = Proc.new do
-                query { string(condstr) }
+                query do
+                  boolean do
+                    if condstr
+                      must { match :_all, condstr, type: 'phrase_prefix' }
+                    else
+                      must { all }
+                    end
+                    (except || []).each do |expt|
+                      must_not { term expt[0].to_sym, expt[1].to_s }
+                    end
+                  end 
+                end
                 filter(:term, domain: domain_name) unless domain_name.blank?
                 es_block.call(self) if es_block.respond_to?(:call)
               end
@@ -353,18 +373,6 @@ module DataTablesController
         columnNames
       end
     end
-  end
-
-  def elasticsearch_sanitation(search_string, except)
-    logger.debug "*** elasticsearch_sanitation.before = `#{search_string}'"
-    search_string = '*' if search_string.blank?
-    search_string.strip!
-    numerical_search = (search_string.split.count > 1) ? "" : "OR *#{search_string.gsub(":","\\:")}*"
-    search_string = "(\"*#{search_string}*\" #{numerical_search}) " unless search_string =~ /(\*|\")/
-    exceptions = except.map { |f|  "NOT #{f[0]}:\"#{f[1]}\""}.join(" AND ") if except
-    search_string += " AND " + exceptions if exceptions
-    logger.debug "*** elasticsearch_sanitation.after = `#{search_string}'"
-    search_string
   end
 
   # gets the value for a column and row
