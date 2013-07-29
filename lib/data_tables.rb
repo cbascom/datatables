@@ -44,7 +44,7 @@ module DataTablesController
       scope = options[:scope] || :domain
       named_scope = options[:named_scope]
       named_scope_args = options[:named_scope_args]
-      except = options[:except]
+      except = options[:except] || []
       es_block = options[:es_block]
 
       #
@@ -79,8 +79,6 @@ module DataTablesController
             elastic_index_name = "#{Tire::Model::Search.index_prefix}#{modelCls.to_s.underscore}"
             logger.debug "*** (datatable:#{__LINE__}) Using tire for search #{modelCls} (#{elastic_index_name})"
 
-            except_list = except || []
-
             retried = 0
             if Tire.index(elastic_index_name){exists?}.response.code != 404
               begin
@@ -94,7 +92,7 @@ module DataTablesController
                         must { all }
                       end
 
-                      except_list.each do |expt|
+                      except.each do |expt|
                         must_not { term expt[0].to_sym, expt[1].to_s }
                       end
                     end
@@ -120,7 +118,7 @@ module DataTablesController
                   query do
                     boolean do
                       must { all }
-                      except_list.each do |expt|
+                      except.each do |expt|
                         must_not { term expt[0].to_sym, expt[1].to_s }
                       end
                     end
@@ -192,7 +190,7 @@ module DataTablesController
           #
           define_method action.to_sym do
             domain_name = ActiveRecord::Base.connection.schema_search_path.to_s.split(",")[0]
-            logger.debug "*** Using ElasticSearch for #{modelCls.name}"
+            logger.debug "*** (datatables:#{__LINE__}) Using ElasticSearch for #{modelCls.name}"
             objects =  []
 
             condstr = nil
@@ -220,7 +218,7 @@ module DataTablesController
                     else
                       must { all }
                     end
-                    (except || []).each do |expt|
+                    except.each do |expt|
                       must_not { term expt[0].to_sym, expt[1].to_s }
                     end
                   end 
