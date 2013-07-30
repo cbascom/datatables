@@ -11,6 +11,8 @@ module DataTablesHelper
     options[:sScrollX] = '100%'
     options[:bScrollCollapse] = true
     options[:bDeferRender] = true
+    options[:bScrollInfinite] = true
+    options[:iDisplayLength] = 100
     options[:oColVis] ||= {}
     options[:bFilter] = true
     options[:oColVis][:aiExclude] ||= []
