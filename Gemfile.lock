@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    data_tables (0.1.9)
+    data_tables (0.1.11)
 
 GEM
   remote: https://rubygems.org/

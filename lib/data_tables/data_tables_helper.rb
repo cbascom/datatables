@@ -13,12 +13,7 @@ module DataTablesHelper
     options[:bDeferRender] = true
     options[:bScrollInfinite] = true
     options[:iDisplayLength] = 100
-    options[:oColVis] ||= {}
     options[:bFilter] = true
-    options[:oColVis][:aiExclude] ||= []
-    unless options[:oColVis][:aiExclude].include?(0)
-      options[:oColVis][:aiExclude].unshift(0)
-    end
 
     options[:bFilter] = opts[:search] unless opts[:search].nil?
 
@@ -46,9 +41,9 @@ module DataTablesHelper
     options[:fnDrawCallback] = "function() {
       change_scrollY();
     }"
-      
+
     sdom = options[:bFilter] ? '<"#datatables_search_hint">lfrtip' : 'lrtip'
-    sdom = "C<\"clear\">" + sdom if options[:oColVis]
+    sdom = "C<\"clear\">" + sdom
     sdom = 'T' + sdom if options[:oTableTools]
     options[:sDom] ||= sdom
 
@@ -109,7 +104,7 @@ $(document).ready(function() {
       $('.dataTables_scrollBody').css('height', h+20);
     }
   }
-  
+
   function resize_column_width() {
     $('.dataTables_scrollHeadInner').width('100%');
     $('.dataTable').width('100%');
