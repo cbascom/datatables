@@ -15,7 +15,15 @@ describe 'data_tables' do
 
   def save_elasticsearch(index_name, data)
     Tire.index(index_name) do
-      create unless exists?
+      unless exists?
+        create mappings: {
+          document: {
+            properties: {
+              name: { type: 'string', index: 'not_analyzed'}
+            }
+          }
+        }
+      end
       data.each do |datum|
         store datum
       end
