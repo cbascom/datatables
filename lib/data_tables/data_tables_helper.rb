@@ -39,7 +39,7 @@ module DataTablesHelper
       }"
 
     options[:fnDrawCallback] = "function() {
-      change_scrollY2();
+      change_scrollY();
     }"
 
     sdom = options[:bFilter] ? '<"#datatables_search_hint">lfrtip' : 'lrtip'
@@ -93,6 +93,8 @@ $(document).ready(function() {
 });
 
   function change_scrollY() {
+    $('.dataTables_scrollHeadInner').css('padding-right','17px');
+    $('.dataTables_scrollHeadInner').width('100%');
     $('.dataTable').width('100%');
     $('##{datatable[:action]}').dataTable().fnAdjustColumnSizing(false);
     h = $('##{source}').height();
@@ -104,14 +106,15 @@ $(document).ready(function() {
     {
       $('.dataTables_scrollBody').css('height', h+20);
     }
+    $('.dataTables_scrollBody').trigger('scroll');
+    if($('.dataTable').width() < $('.dataTables_scrollHead').width())
+    {
+      $('.dataTable').width('100%');
+      $('.dataTables_scrollHeadInner').width($('##{source}').width());
+    }
   }
 
-  function change_scrollY2() {
-    change_scrollY();
-    change_scrollY();
-  }
-
-  $(window).resize(change_scrollY2);
+  $(window).resize(change_scrollY);
 
 </script>
 <table id=\"#{datatable[:action]}\" #{html_opts}>
