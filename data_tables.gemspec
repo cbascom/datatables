@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |s|
   s.name        = 'data_tables'
-  s.version     = '0.1.12'
+  s.version     = '0.1.13'
   s.date        = Time.now.strftime("%Y-%m-%d")
   s.summary     = "Rails friendly interface into DataTables"
   s.description = "DataTables for Rails"
