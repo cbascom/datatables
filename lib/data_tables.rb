@@ -61,7 +61,6 @@ module DataTablesController
           search_condition = params[:sSearch].blank? ? nil : params[:sSearch].to_s
 
           sort_column = params[:iSortCol_0].to_i
-          sort_column = 1 if sort_column == 0
           current_page = (params[:iDisplayStart].to_i/params[:iDisplayLength].to_i rescue 0) + 1
           per_page = params[:iDisplayLength] || 10
           per_page = per_page.to_i
@@ -196,7 +195,6 @@ module DataTablesController
             condstr = nil
             unless params[:sSearch].blank?
               sort_column_id = params[:iSortCol_0].to_i
-              sort_column_id = 1 if sort_column_id == 0
               sort_column = columns[sort_column_id]
               if sort_column && sort_column.has_key?(:attribute)
                 condstr = params[:sSearch].gsub(/_/, '\\\\_').gsub(/%/, '\\\\%')
@@ -221,7 +219,7 @@ module DataTablesController
                     except.each do |expt|
                       must_not { term expt[0].to_sym, expt[1].to_s }
                     end
-                  end 
+                  end
                 end
                 filter(:term, domain: domain_name) unless domain_name.blank?
                 es_block.call(self) if es_block.respond_to?(:call)
@@ -264,7 +262,6 @@ module DataTablesController
             condition_local = ''
             unless params[:sSearch].blank?
               sort_column_id = params[:iSortCol_0].to_i
-              sort_column_id = 1 if sort_column_id == 0
               sort_column = columns[sort_column_id]
               condstr = params[:sSearch].strip.gsub(/_/, '\\\\_').gsub(/%/, '\\\\%')
 
@@ -306,7 +303,6 @@ module DataTablesController
               total_display_records = modelCls.count :conditions => conditions.join(" AND ")
             end
             sort_column = params[:iSortCol_0].to_i
-            sort_column = 1 if sort_column == 0
             current_page = (params[:iDisplayStart].to_i/params[:iDisplayLength].to_i rescue 0)+1
             if named_scope
                 objects = modelCls.send(named_scope, *args).paginate(:page => current_page,
