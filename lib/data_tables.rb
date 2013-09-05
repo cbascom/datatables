@@ -265,7 +265,7 @@ module DataTablesController
               sort_column = columns[sort_column_id]
               condstr = params[:sSearch].strip.gsub(/_/, '\\\\_').gsub(/%/, '\\\\%')
 
-              search_columns = options[:columns].map{|e| e.class == Symbol ? e : nil }.compact
+              search_columns = options[:columns].map{|e| e.class == Symbol ? e : e[:attribute] }.compact
               condition_local = search_columns.map do |column_name|
                 " ((text(#{column_name}) ILIKE '%#{condstr}%')) "
               end.compact.join(" OR ")
