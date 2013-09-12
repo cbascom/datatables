@@ -97,6 +97,8 @@ $(document).ready(function() {
     $('.dataTables_scrollHeadInner').width('100%');
     $('.dataTable').width('100%');
     $('##{datatable[:action]}').dataTable().fnAdjustColumnSizing(false);
+    $('.dataTables_scrollHead').width('100%');
+    $('.dataTables_scrollBody').width('100%');
     h = $('##{source}').height();
     if( h > $(window).height() *55/100 )
     {
