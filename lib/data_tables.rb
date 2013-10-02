@@ -46,6 +46,7 @@ module DataTablesController
       named_scope_args = options[:named_scope_args]
       except = options[:except] || []
       es_block = options[:es_block]
+      order_sort = options[:order_sort]
 
       #
       # ------- Ohm ----------- #
@@ -304,11 +305,12 @@ module DataTablesController
             end
             sort_column = params[:iSortCol_0].to_i
             current_page = (params[:iDisplayStart].to_i/params[:iDisplayLength].to_i rescue 0)+1
-            order = if columns[sort_column][:name].to_s == 'channel_range'
-                      "primary_channel #{params[:sSortDir_0]}, #{columns[sort_column][:name]} #{params[:sSortDir_0]}"
+            order = if order_sort.respond_to?(:call)
+                      order_sort.call(columns[sort_column][:name], params[:sSortDir_0])
                     else
                       "#{columns[sort_column][:name]} #{params[:sSortDir_0]}"
                     end
+
             if named_scope
                 objects = modelCls.send(named_scope, *args).paginate(:page => current_page,
                                             :order => order, 
