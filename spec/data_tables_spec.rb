@@ -19,7 +19,7 @@ describe 'data_tables' do
         create mappings: {
           document: {
             properties: {
-              name: { type: 'string', index: 'not_analyzed'}
+              name: { type: 'string' }
             }
           }
         }

@@ -93,7 +93,7 @@ module DataTablesController
                       end
 
                       except.each do |expt|
-                        must_not { term expt[0].to_sym, expt[1].to_s }
+                        must_not { match expt[0].to_sym, expt[1].to_s }
                       end
                     end
                   end
@@ -119,7 +119,7 @@ module DataTablesController
                     boolean do
                       must { all }
                       except.each do |expt|
-                        must_not { term expt[0].to_sym, expt[1].to_s }
+                        must_not { match expt[0].to_sym, expt[1].to_s }
                       end
                     end
                   end
@@ -218,7 +218,7 @@ module DataTablesController
                       must { all }
                     end
                     except.each do |expt|
-                      must_not { term expt[0].to_sym, expt[1].to_s }
+                      must_not { match expt[0].to_sym, expt[1].to_s }
                     end
                   end
                 end
@@ -322,7 +322,6 @@ module DataTablesController
                                             :conditions => conditions.join(" AND "),
                                             :per_page => params[:iDisplayLength])
             end
-            #logger.info("------conditions is #{conditions}")
             data = objects.collect do |instance|
               columns.collect { |column| datatables_instance_get_value(instance, column) }
             end
