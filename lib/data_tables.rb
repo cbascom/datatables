@@ -313,12 +313,12 @@ module DataTablesController
 
             if named_scope
                 objects = modelCls.send(named_scope, *args).paginate(:page => current_page,
-                                            :order => order, 
+                                            :order => order,
                                             :conditions => conditions.join(" AND "),
                                             :per_page => params[:iDisplayLength])
             else
                 objects = modelCls.paginate(:page => current_page,
-                                            :order => order, 
+                                            :order => order,
                                             :conditions => conditions.join(" AND "),
                                             :per_page => params[:iDisplayLength])
             end
@@ -388,8 +388,11 @@ module DataTablesController
       end
     elsif column[:attribute]
       val = instance.send(column[:attribute].to_sym)
-      return I18n.t(val.to_s.to_sym, :default => val.to_s) if not val.blank?
-      return ''
+      if !val.blank? || val == false
+        return I18n.t(val.to_s.to_sym, :default => val.to_s)
+      else
+        return ''
+      end
     end
     return "value not found"
   end
