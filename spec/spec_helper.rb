@@ -11,7 +11,7 @@ Dir[File.join(APP_ROOT, "spec/models/*.rb")].each {|f| require f}
 
 DEBUG = false
 
-Tire.configure { logger STDOUT } if DEBUG
+Tire.configure { logger STDOUT, level: :debug } if DEBUG
 Tire::Model::Search.index_prefix('test_datatable_')
 
 RSpec.configure do |config|
