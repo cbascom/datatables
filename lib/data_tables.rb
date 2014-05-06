@@ -390,7 +390,7 @@ module DataTablesController
       val = instance.send(column[:attribute].to_sym)
       if !val.blank? || val == false
         trans = I18n.t(val.to_s.to_sym, :default => val.to_s)
-        return trans.class == String ? trans : val
+        return trans.class == String ? trans : val.to_s
       else
         return ''
       end
