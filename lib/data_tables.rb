@@ -313,7 +313,7 @@ module DataTablesController
 
             if named_scope
                 objects = modelCls.send(named_scope, *args).paginate(:page => current_page,
-                                            :order => order,
+                                            :order => "#{order}",
                                             :conditions => conditions.join(" AND "),
                                             :per_page => params[:iDisplayLength])
             else
