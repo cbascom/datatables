@@ -25,10 +25,16 @@ module DataTablesHelper
 
     options[:fnServerData] ||= "function ( sSource, aoData, fnCallback ) {
       var init_sSearch = $('#init_sSearch');
+      var start_time = $('#start_time');
+      var end_time = $('#end_time');
       if(init_sSearch != undefined && init_sSearch.val() != '' && init_sSearch.size() != 0) {
         $('.dataTables_filter input').val(init_sSearch.val());
         aoData.push( { name:'sSearch', value: init_sSearch.val() });
         $('#init_sSearch').remove();
+      }
+      if(start_time.val() != undefined && start_time.val() != '' && end_time.val() != undefined && end_time.val() != '') {
+        aoData.push( { name:'sStarttime', value:start_time.val() });
+        aoData.push( { name:'sEndtime', value:end_time.val() });
       }
       $.ajax( {
                 'dataType': 'json',
@@ -83,13 +89,22 @@ module DataTablesHelper
 <script>
 $(document).ready(function() {
   var oTable = $('##{datatable[:action]}').dataTable({
-#{datatables_option_string(options)}
+    #{datatables_option_string(options)}
   });
   $('tfoot input').keyup( function () {
-                /* Filter on the column (the index) of this element */
-                oTable.fnFilter( this.value, $('tfoot input').index(this) );
-        } );
-
+    /* Filter on the column (the index) of this element */
+    oTable.fnFilter( this.value, $('tfoot input').index(this) );
+   });
+  $('#custom_interval_select_log').click( function () {
+    custom_interval_select_handler_log($('#custom_start').val(),$('#custom_end').val());
+    oTable.fnDraw();
+  });
+  $('.interval').change( function () {
+    interval_click_handler_log();
+    oTable.fnDraw();
+  });
+  $('.dataTables_filter').after($('#tab_options_popup'));
+  $('.dataTables_filter').after($('#interval_choice'));
 });
 
   function change_scrollY() {
