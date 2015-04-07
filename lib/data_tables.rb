@@ -194,6 +194,8 @@ module DataTablesController
             objects =  []
 
             condstr = nil
+            starttime_str = nil
+            endtime_str = nil
             unless params[:sSearch].blank?
               sort_column_id = params[:iSortCol_0].to_i
               sort_column = columns[sort_column_id]
@@ -201,7 +203,15 @@ module DataTablesController
                 condstr = params[:sSearch].gsub(/_/, '\\\\_').gsub(/%/, '\\\\%')
               end
             end
-
+            unless params[:sStarttime].blank? || params[:sEndtime].blank?
+              sort_column_id = params[:iSortCol_0].to_i
+              sort_column = columns[sort_column_id]
+              if sort_column && sort_column.has_key?(:attribute)
+                starttime = params[:sStarttime]
+                endtime = params[:sEndtime]
+              end
+            end
+            
             sort_column = params[:iSortCol_0].to_i
             current_page = (params[:iDisplayStart].to_i/params[:iDisplayLength].to_i rescue 0)+1
             per_page = params[:iDisplayLength] || 10
@@ -213,7 +223,7 @@ module DataTablesController
                 query do
                   boolean do
                     if condstr
-                      must { match :_all, condstr, type: 'phrase_prefix' }
+                      must { match :_all, condstr, type: 'phrase_prefix' }          
                     else
                       must { all }
                     end
@@ -222,6 +232,7 @@ module DataTablesController
                     end
                   end
                 end
+                filter(:range, created_at: {gte: starttime,lte: endtime}) unless starttime.blank? || endtime.blank?
                 filter(:term, domain: domain_name) unless domain_name.blank?
                 es_block.call(self) if es_block.respond_to?(:call)
               end
@@ -261,17 +272,30 @@ module DataTablesController
 
           define_method action.to_sym do
             condition_local = ''
+            condition = ''
+
             unless params[:sSearch].blank?
               sort_column_id = params[:iSortCol_0].to_i
               sort_column = columns[sort_column_id]
               condstr = params[:sSearch].strip.gsub(/%/, '%%').gsub(/'/,"''")
 
               search_columns = options[:columns].map{|e| e.class == Symbol ? e : e[:attribute] }.compact
-              condition_local = search_columns.map do |column_name|
+              condition = search_columns.map do |column_name|
                 " ((text(#{column_name}) ILIKE '%#{condstr}%')) "
               end.compact.join(" OR ")
-              condition_local = " ( #{condition_local} ) " unless condition_local.blank?
+              condition = "(#{condition})" unless condition.blank?
             end
+            unless params[:sStarttime].blank? || params[:sEndtime].blank?
+              sort_column_id = params[:iSortCol_0].to_i
+              sort_column = columns[sort_column_id]
+              if sort_column && sort_column.has_key?(:attribute)
+                starttime = params[:sStarttime]
+                endtime = params[:sEndtime]
+              end
+              condition = condition + "AND" unless condition.blank?
+              condition = condition + "(last_seen BETWEEN  '#{starttime}' AND '#{endtime}') " 
+            end
+            condition_local = "(#{condition})" unless condition.blank?
 
             # We just need one conditions string for search at a time.  Every time we input
             # something else in the search bar we will pop the previous search condition
