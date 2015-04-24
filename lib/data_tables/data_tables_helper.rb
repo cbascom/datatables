@@ -91,6 +91,8 @@ $(document).ready(function() {
   var oTable = $('##{datatable[:action]}').dataTable({
     #{datatables_option_string(options)}
   });
+  showFilteredData();
+  oTable.fnDraw();
   $('tfoot input').keyup( function () {
     /* Filter on the column (the index) of this element */
     oTable.fnFilter( this.value, $('tfoot input').index(this) );
