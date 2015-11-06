@@ -402,24 +402,46 @@ module DataTablesController
   # gets the value for a column and row
   def datatables_instance_get_value(instance, column)
     if column[:special]
-      special = column[:special]
-
-      if special[:method]
-        return method(special[:method].to_sym).call(instance)
-      elsif special[:eval]
-        proc = lambda { obj = instance; binding }
-        return Kernel.eval(special[:eval], proc.call)
-      end
+      get_instance_special_value(instance, column[:special])
     elsif column[:attribute]
-      val = instance.send(column[:attribute].to_sym)
-      if !val.blank? || val == false
-        trans = I18n.t(val.to_s.to_sym, :default => val.to_s)
-        return trans.class == String ? trans : val.to_s
-      else
-        return ''
+      begin
+      get_instance_value(instance.send("#{column[:attribute]}"))
+      rescue ArgumentError => error
+        handle_argument_error(error, instance, column)
       end
+    else
+      return "value not found"
     end
-    return "value not found"
+  end
+
+  def get_instance_special_value(instance, special)
+    if special[:method]
+      return method(special[:method].to_sym).call(instance)
+    elsif special[:eval]
+      proc = lambda { obj = instance; binding }
+      return Kernel.eval(special[:eval], proc.call)
+    end
+  end
+
+  def get_instance_value(value)
+    if !value.blank? || value == false
+      trans = I18n.t(value.to_s.to_sym, :default => value.to_s)
+      return trans.class == String ? trans : value.to_s
+    else
+      return ''
+    end
+  end
+
+  def handle_argument_error(error, instance, column)
+    if error.message.include? "UTF-8"
+      invalid_sequence = instance.send("#{column[:attribute]}").bytes.to_a
+      logger.warn("[datatables] Error: #{instance.class.name} for "+
+                  "id #{instance.id}, column #{column[:attribute]}: " +
+                  "Invalid UTF8 sequence is [#{invalid_sequence.join(", ")}]")
+      return ''
+    else
+      raise
+    end
   end
 
   def datatable_source(name)
